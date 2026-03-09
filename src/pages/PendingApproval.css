@@ -1,0 +1,149 @@
+/* Pending Approval Page */
+.pending-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 20px;
+}
+
+.pending-card {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.pending-icon-animated {
+  margin-bottom: 20px;
+}
+
+.pending-clock {
+  font-size: 48px;
+  display: inline-block;
+  animation: pendingPulse 2s ease-in-out infinite;
+}
+
+@keyframes pendingPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.pending-card h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+.pending-message {
+  font-size: 15px;
+  color: #475569;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.pending-detail {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.pending-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.info-icon {
+  font-size: 18px;
+}
+
+/* Community resource links */
+.pending-resources {
+  margin: 24px 0;
+  padding-top: 20px;
+  border-top: 2px solid #f1f5f9;
+}
+
+.pending-resources h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 14px;
+}
+
+.pending-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pending-resource-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 12px;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: 1px solid #e2e8f0;
+}
+
+.pending-resource-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pending-resource-btn.youtube { background: #fef2f2; color: #dc2626; }
+.pending-resource-btn.website { background: #eff6ff; color: #2563eb; }
+.pending-resource-btn.telegram { background: #ecfeff; color: #0891b2; }
+.pending-resource-btn.whatsapp { background: #f0fdf4; color: #16a34a; }
+
+.pending-back-btn {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #2563eb, #8b5cf6);
+  color: white;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.pending-back-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+@media (max-width: 500px) {
+  .pending-links {
+    grid-template-columns: 1fr;
+  }
+  .pending-card {
+    padding: 24px;
+  }
+}

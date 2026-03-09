@@ -1,0 +1,91 @@
+.hours-tracker {
+  display: flex; flex-direction: column; gap: var(--sp-5);
+}
+
+.hours-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.hours-header h3 { font-size: var(--fs-base); font-weight: 700; color: var(--color-text-primary); }
+
+.target-select {
+  padding: 4px 8px; border-radius: var(--radius-md); border: 1px solid var(--color-border);
+  font-size: var(--fs-xs); color: var(--color-text-secondary); background: var(--color-bg-input);
+  outline: none; cursor: pointer;
+}
+
+.today-progress {
+  text-align: center;
+}
+
+.progress-text { margin-bottom: var(--sp-2); }
+.current { font-size: var(--fs-2xl); font-weight: 800; color: var(--color-primary); margin-right: 4px; }
+.target { font-size: var(--fs-sm); color: var(--color-text-muted); font-weight: 600; }
+
+.progress-bar-wrap {
+  height: 8px; background: var(--color-bg-input); border-radius: var(--radius-full);
+  margin-bottom: var(--sp-2); overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%; border-radius: var(--radius-full); transition: width 1s ease-out, background 0.3s;
+}
+
+.progress-msg {
+  font-size: var(--fs-xs); color: var(--color-text-secondary);
+}
+
+/* Hours summary */
+.hours-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.hours-summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.hours-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hs-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.hs-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.hs-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.hs-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #8b5cf6);
+  border-radius: 100px;
+  transition: width 0.6s ease;
+}
+
+.chart-container h4 {
+  font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-text-muted); margin-bottom: var(--sp-3);
+}
+
+.chart-wrapper {
+  height: 140px; width: 100%;
+}

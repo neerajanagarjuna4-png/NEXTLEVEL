@@ -1,0 +1,72 @@
+.lb-tabs {
+  display: flex; gap: 4px;
+}
+
+.lb-tab-btn {
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--color-border, #e2e8f0);
+  font-size: 11px; font-weight: 600; color: #64748b;
+  background: #f8fafc; cursor: pointer; transition: all 0.2s;
+}
+
+.lb-tab-btn.active, .lb-tab-btn:hover {
+  background: #2563eb; color: white; border-color: #2563eb;
+}
+
+.lb-empty {
+  text-align: center; padding: 30px 16px; color: #64748b; font-size: 13px;
+}
+
+.lb-list {
+  display: flex; flex-direction: column; gap: var(--sp-2, 8px);
+}
+
+.lb-item {
+  display: flex; align-items: center; gap: var(--sp-3, 12px);
+  padding: var(--sp-3, 12px); border-radius: var(--radius-lg, 12px);
+  background: white; border: 1px solid var(--color-border, #e2e8f0);
+  transition: transform 0.15s;
+}
+
+.lb-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+
+.lb-item.is-me { border-color: #2563eb; background: linear-gradient(to right, #eff6ff, white); }
+
+.lb-item.rank-1 { border-color: #fbbf24; background: linear-gradient(to right, white, #fef3c7); }
+.lb-item.rank-2 { border-color: #94a3b8; background: linear-gradient(to right, white, #f1f5f9); }
+.lb-item.rank-3 { border-color: #d97706; background: linear-gradient(to right, white, #ffedd5); }
+
+.lb-rank {
+  font-size: 16px; font-weight: 900; color: #94a3b8;
+  width: 32px; text-align: center;
+}
+
+.rank-1 .lb-rank { color: #fbbf24; }
+.rank-2 .lb-rank { color: #94a3b8; }
+.rank-3 .lb-rank { color: #d97706; }
+
+.lb-info { flex: 1; }
+
+.lb-name { font-size: 13px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px; }
+.lb-details { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+.lb-you-tag {
+  padding: 2px 8px; background: #2563eb; color: white;
+  border-radius: 10px; font-size: 10px; font-weight: 700;
+}
+
+.lb-branch { color: #2563eb; font-weight: 600; padding: 0 4px; background: #eff6ff; border-radius: 4px; }
+.lb-points { font-weight: 600; }
+.lb-hours { color: #64748b; }
+
+.lb-streak {
+  font-size: 12px; font-weight: 700; color: #ef4444;
+  background: #fef2f2; padding: 4px 8px; border-radius: 20px;
+}
+
+.lb-view-all {
+  margin-top: 8px; padding: 8px; text-align: center;
+  font-size: 13px; font-weight: 600; color: #2563eb;
+  background: transparent; border: none; cursor: pointer;
+}
+
+.lb-view-all:hover { text-decoration: underline; }

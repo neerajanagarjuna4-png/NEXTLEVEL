@@ -1,0 +1,83 @@
+// Bhima Sankar Sir's exact motivational quotes
+export const motivationQuotes = [
+  { text: "Believe in your preparation. Success follows effort.", highlight: [] },
+  { text: "Consistency today becomes confidence on exam day.", highlight: ["Consistency"] },
+  { text: "Every day of preparation brings you closer to your GATE dream.", highlight: [] },
+  { text: "Great ranks are built through small disciplined steps.", highlight: [] },
+  { text: "Respect time. Every minute you use wisely builds your future rank.", highlight: [] },
+  { text: "Trust the process. AIR ranks are built from thousands of solved problems.", highlight: ["TRUST THE PROCESS"] },
+  { text: "Start early. GATE rewards consistency, not last-minute brilliance.", highlight: ["CONSISTENCY"] },
+  { text: "Your competition is studying right now. Stay focused on your preparation.", highlight: [] },
+  { text: "One PYQ today is one step closer to AIR under 10.", highlight: [] },
+  { text: "Discipline today. Rank tomorrow.", highlight: ["DISCIPLINE"] },
+  { text: "GATE does not test talent. It tests preparation.", highlight: [] },
+  { text: "Small daily progress creates extraordinary ranks.", highlight: [] },
+  { text: "While others scroll, toppers solve problems.", highlight: [] },
+  { text: "The syllabus is the same for everyone. Dedication makes the difference.", highlight: [] },
+  { text: "Consistency beats intelligence in competitive exams.", highlight: ["Consistency"] },
+  { text: "TRUST THE PROCESS. AIR under 10 is built through daily discipline.", highlight: ["TRUST THE PROCESS", "DISCIPLINE"] },
+  { text: "AIM BIG. If your target is AIR 1, even your mistakes move you forward.", highlight: ["AIM BIG"] },
+  { text: "Focus on the process, not the result. Results follow consistent effort.", highlight: [] },
+  { text: "Start early. Every month of preparation builds stronger concepts.", highlight: [] },
+  { text: "One concept mastered today is one step closer to AIR.", highlight: [] },
+  { text: "Focus on the process — results will follow naturally.", highlight: [] },
+  { text: "Stay patient, stay consistent, and your rank will rise.", highlight: [] },
+  { text: "Start early. Stay sincere. Success will recognize you.", highlight: [] },
+]
+
+export const mentorInfo = {
+  name: "Mr. Bhima Sankar Sir",
+  qualifications: [
+    "M.TECH (IIT KGP)",
+    "PHD (IIIT HYDERABAD)",
+    "14 YEARS OF TEACHING EXPERIENCE",
+    "MENTORED 1 LAKH+ STUDENTS",
+    "TAUGHT 1000+ BATCHES (OFFLINE & ONLINE)",
+    "EXPERT IN GUIDING STUDENTS",
+    "MENTORED MANY STUDENTS FOR PSU, GATE, ESE AND TOP MNCs",
+  ],
+  subjects: [
+    "NETWORKS",
+    "DIGITAL",
+    "ANALOG",
+    "COMPUTER ORGANISATION",
+    "MICRO PROCESSORS",
+    "AND MANY MORE",
+  ],
+  phone: "+91 9705861166",
+  email: "sankar.bhima@gmail.com",
+  quotes: [
+    "Every student who walks into NEXT_LEVEL is not just a learner—they're a dreamer with a spark. My job is to fan that spark into a flame that lights up their future.",
+    "GATE is not just an exam; it's a journey of self-discovery and discipline. With the right guidance and consistent effort, every student can achieve their dream rank. I'm here to guide you every step of the way.",
+  ],
+  dream: "My dream is to see my students fly higher than I ever could. Every rank they achieve, every success they celebrate—that's my success. That's why I wake up every morning.",
+  messageToStudents: "I've seen students from the smallest towns, with the fewest resources, achieve the biggest dreams. Not because they were geniuses, but because they refused to give up.",
+  motto: [
+    "ACHIEVE YOUR HIGHEST POTENTIAL",
+    "Next Level Engineering and Beyond",
+    "NEVER COMPROMISE FOR LESS",
+    "KNOW THE BIG, ACHIEVE THE BIG",
+    "DO YOUR BEST",
+  ],
+  links: {
+    youtube: "https://m.youtube.com/@Next_Level_by_Bhima_Sankar",
+    website: "https://Nextlevel.akamai.net.in",
+    telegram: "https://t.me/shankar10GATE",
+    whatsapp: "https://chat.whatsapp.com/EyUYumDUZVc2KJ6kkpvVLn",
+  },
+  mockTests: [
+    { label: "GATE 2025 ECE", icon: "📘", url: "https://www.ohminstitute.in/learn/home/GATE-2025--ECE-/" },
+    { label: "GATE 2026 ECE", icon: "📘", url: "https://www.ohminstitute.in/learn/home/GATE-2026--ECE-/" },
+    { label: "GATE 2025 EE", icon: "📗", url: "https://www.ohminstitute.in/learn/home/GATE-2025--EE-/section/536990/lesson/3340833" },
+    { label: "GATE 2026 EE", icon: "📗", url: "https://www.ohminstitute.in/learn/home/GATE-2026--EE-/" },
+  ],
+}
+
+export const defaultDailyTasks = [
+  { id: 1, text: "Solve 25 PYQs", category: "Practice" },
+  { id: 2, text: "Revise one subject", category: "Revision" },
+  { id: 3, text: "Take a mock test", category: "Assessment" },
+  { id: 4, text: "Review mistakes", category: "Analysis" },
+  { id: 5, text: "Study new topic", category: "Learning" },
+  { id: 6, text: "Practice numerical problems", category: "Practice" },
+]

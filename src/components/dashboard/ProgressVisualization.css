@@ -1,0 +1,70 @@
+.progress-viz-widget {
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  height: 100%;
+}
+
+.viz-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.viz-header h3 { font-size: var(--fs-base); font-weight: 700; color: var(--color-text-primary); }
+
+.viz-select {
+  padding: 4px 8px; border-radius: var(--radius-md); border: 1px solid var(--color-border);
+  font-size: var(--fs-xs); color: var(--color-text-secondary); background: var(--color-bg-input);
+  outline: none; cursor: pointer;
+}
+
+.viz-content {
+  display: flex; gap: var(--sp-6); align-items: center; flex: 1;
+}
+
+.pie-chart-container {
+  position: relative; width: 200px; height: 200px; flex-shrink: 0;
+}
+
+.pie-center-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center; display: flex; flex-direction: column;
+}
+
+.pie-center-text span { font-size: var(--fs-2xl); font-weight: 800; color: var(--color-text-primary); line-height: 1; }
+.pie-center-text label { font-size: var(--fs-xs); color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+
+.subject-bars {
+  flex: 1; display: flex; flex-direction: column; gap: var(--sp-3);
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Custom scrollbar for subject-bars */
+.subject-bars::-webkit-scrollbar { width: 4px; }
+.subject-bars::-webkit-scrollbar-track { background: transparent; }
+.subject-bars::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+.subject-bars h4 {
+  font-size: var(--fs-xs); color: var(--color-text-muted); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: var(--sp-2);
+}
+
+.sub-bar-row { display: flex; flex-direction: column; gap: 4px; }
+
+.sub-bar-info {
+  display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: 600;
+}
+
+.sub-name { color: var(--color-text-secondary); }
+.sub-pct { color: var(--color-primary); }
+
+.sub-bar-bg {
+  height: 6px; background: var(--color-bg-input); border-radius: var(--radius-full); overflow: hidden;
+}
+
+.sub-bar-fill {
+  height: 100%; background: var(--color-primary); border-radius: var(--radius-full);
+}
+
+@media (max-width: 768px) {
+  .viz-content { flex-direction: column; }
+}

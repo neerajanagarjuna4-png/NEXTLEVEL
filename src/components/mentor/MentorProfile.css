@@ -1,0 +1,122 @@
+/* ============ Mentor Profile ============ */
+.mentor-card {
+  text-align: center;
+}
+
+.mentor-card h3 {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  margin-bottom: var(--space-5);
+}
+
+.mentor-photo-wrapper {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  margin: 0 auto var(--space-4);
+}
+
+.mentor-photo-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  animation: float 4s ease-in-out infinite;
+}
+
+.mentor-photo {
+  width: 130px;
+  height: 130px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  position: relative;
+  z-index: 1;
+  border: 4px solid var(--color-bg-card);
+  transition: transform var(--transition-base);
+}
+
+.mentor-photo:hover {
+  transform: scale(1.05);
+}
+
+.mentor-name {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.mentor-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent-primary);
+  font-weight: 500;
+  margin-bottom: var(--space-4);
+}
+
+.mentor-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.mentor-stat {
+  text-align: center;
+}
+
+.mentor-stat .stat-num {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  color: var(--color-accent-primary-hover);
+  display: block;
+}
+
+.mentor-stat .stat-lbl {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.mentor-bio {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-4);
+}
+
+.mentor-contact-btn {
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  background: var(--gradient-primary);
+  color: white;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.mentor-contact-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow-primary);
+}
+
+@media (max-width: 480px) {
+  .mentor-photo-wrapper {
+    width: 100px;
+    height: 100px;
+  }
+  .mentor-photo {
+    width: 100px;
+    height: 100px;
+  }
+  .mentor-stats {
+    gap: var(--space-3);
+  }
+}
