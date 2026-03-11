@@ -109,6 +109,19 @@ function SyllabusChecklist({ branch, userKey }) {
 
   return (
     <div className="syllabus-checklist">
+      {/* Inserted Countdown Component */}
+      <div className="countdown-container glass animate-fade-in">
+        <div className="countdown-title">
+          <span className="icon">🚀</span>
+          <h3 className="gradient-text">GATE 2026 Countdown</h3>
+        </div>
+        {/* Placeholder for actual countdown logic */}
+        <div className="countdown-display">
+          {/* Example: 123 Days 04 Hours 30 Mins */}
+          <span className="countdown-value">--</span> Days <span className="countdown-value">--</span> Hours <span className="countdown-value">--</span> Mins
+        </div>
+      </div>
+
       <div className="syllabus-header">
         <h2 className="section-title">📚 {branch} Syllabus Progress</h2>
         <div className="overall-progress-bar">

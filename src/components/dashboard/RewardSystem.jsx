@@ -59,7 +59,7 @@ function RewardSystem() {
   const level = Math.floor(points / 500) + 1
 
   return (
-    <div className="reward-widget">
+    <div className="reward-widget glass animate-fade-in">
       <div className="reward-header">
         <h3>🏆 Achievements</h3>
         <span className="points-badge">{points.toLocaleString()} PTS</span>

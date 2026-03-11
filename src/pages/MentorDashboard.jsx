@@ -328,10 +328,10 @@ function MentorDashboard() {
   }
 
   return (
-    <div className="mentor-dash">
-      <header className="mentor-dash-header">
+    <div className="mentor-dash animate-fade-in">
+      <header className="mentor-dash-header glass">
         <div>
-          <h1>Mentor Dashboard</h1>
+          <h1 className="gradient-text">Mentor Dashboard</h1>
           <p>Welcome, Bhima Sankar Sir</p>
         </div>
         <button className="btn-outline" onClick={() => { localStorage.removeItem('user'); navigate('/login') }}>Logout</button>
@@ -339,23 +339,23 @@ function MentorDashboard() {
 
       {/* Stats */}
       <div className="mentor-stats-row">
-        <div className="mentor-stat-card">
+        <div className="mentor-stat-card premium-card">
           <span className="m-stat-num">{pending.length}</span>
           <span className="m-stat-label">Pending Approvals</span>
         </div>
-        <div className="mentor-stat-card">
+        <div className="mentor-stat-card premium-card">
           <span className="m-stat-num">{approved.length}</span>
           <span className="m-stat-label">Approved Students</span>
         </div>
-        <div className="mentor-stat-card">
+        <div className="mentor-stat-card premium-card">
           <span className="m-stat-num">{students.filter(s => s.branch === 'ECE').length}</span>
           <span className="m-stat-label">ECE Students</span>
         </div>
-        <div className="mentor-stat-card">
+        <div className="mentor-stat-card premium-card">
           <span className="m-stat-num">{students.filter(s => s.branch === 'EE').length}</span>
           <span className="m-stat-label">EE Students</span>
         </div>
-        <div className="mentor-stat-card">
+        <div className="mentor-stat-card premium-card">
           <span className="m-stat-num">{students.filter(s => s.branch === 'CSE').length}</span>
           <span className="m-stat-label">CSE Students</span>
         </div>
@@ -363,7 +363,7 @@ function MentorDashboard() {
 
       {/* Pending Approvals */}
       {pending.length > 0 && (
-        <div className="card mentor-section">
+        <div className="card mentor-section glass">
           <h2>⏳ Pending Student Requests ({pending.length})</h2>
           <div className="students-list">
             {pending.map(s => (
@@ -386,8 +386,8 @@ function MentorDashboard() {
 
       {/* At-Risk Students */}
       {atRisk.length > 0 && (
-        <div className="card mentor-section at-risk-section">
-          <h2>⚠️ At-Risk Students ({atRisk.length})</h2>
+        <div className="card mentor-section at-risk-section glass">
+          <h2 style={{ color: 'var(--color-danger)' }}>⚠️ At-Risk Students ({atRisk.length})</h2>
           <p className="at-risk-note">Students who haven't submitted a report in 3+ days or have no reports.</p>
           <div className="students-list">
             {atRisk.map(s => (
@@ -405,14 +405,14 @@ function MentorDashboard() {
       )}
 
       {/* All Students */}
-      <div className="card mentor-section">
+      <div className="card mentor-section glass">
         <div className="section-header">
           <h2>👥 All Students ({filtered.length})</h2>
           <div className="filter-row">
             <input
               type="text"
               className="search-input"
-              placeholder="🔍 Search by name..."
+              placeholder="🔍 Search name or email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />

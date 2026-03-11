@@ -50,17 +50,17 @@ function ForgotPassword() {
   }
 
   return (
-    <div className="auth-page">
+    <div className="auth-page animate-fade-in">
       <div className="auth-container">
-        <div className="auth-card">
+        <div className="auth-card glass">
           <div className="auth-logo">
             <img src="/images/nextlevel-logo.jpg" alt="NEXT_LEVEL" className="auth-logo-img" />
-            <h1>Reset Password</h1>
+            <h1 className="gradient-text">Reset Password</h1>
             <p className="tagline">Recover your NEXT_LEVEL account</p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
-          {message && <div style={{ background: '#ecfdf5', color: '#059669', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '14px' }}>{message}</div>}
+          {error && <div className="auth-error animate-fade-in">{error}</div>}
+          {message && <div className="glass" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', padding: '16px', borderRadius: '12px', textAlign: 'center', marginBottom: '20px', fontSize: '14px', fontWeight: '700', border: '1px solid var(--color-success)' }}>{message}</div>}
 
           {step === 1 ? (
             <form className="auth-form" onSubmit={handleCheckEmail}>
@@ -93,7 +93,7 @@ function ForgotPassword() {
           )}
 
           <div className="auth-footer">
-            Remembered your password? <Link to="/login">Back to Login</Link>
+            Remembered your password? <Link to="/login" style={{ fontWeight: '700' }}>Back to Login</Link>
           </div>
         </div>
       </div>

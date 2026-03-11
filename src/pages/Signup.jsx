@@ -79,16 +79,16 @@ function Signup() {
   }
 
   return (
-    <div className="auth-page">
+    <div className="auth-page animate-fade-in">
       <div className="auth-container">
-        <div className="auth-card">
+        <div className="auth-card glass">
           <div className="auth-logo">
             <img src="/images/nextlevel-logo.jpg" alt="NEXT_LEVEL" className="auth-logo-img" />
-            <h1>NEXT_LEVEL</h1>
+            <h1 className="gradient-text">NEXT_LEVEL</h1>
             <p className="tagline">Personal Guidance by Bhima Sankar Sir</p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error animate-fade-in">{error}</div>}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
