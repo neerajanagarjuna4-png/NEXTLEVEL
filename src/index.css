@@ -72,8 +72,8 @@
   --shadow-xl: 0 24px 48px -12px rgba(0,0,0,0.12);
   --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
 
-  --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+  --transition-slow: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease;
 }
 
 /* ============ RESET ============ */
@@ -99,6 +99,9 @@ input { outline: none; transition: var(--transition-base); }
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: var(--shadow-glass);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .premium-card {
@@ -126,12 +129,20 @@ input { outline: none; transition: var(--transition-base); }
 
 /* ============ ANIMATIONS ============ */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translate3d(0, 15px, 0); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translate3d(0, 0, 0); 
+  }
 }
 
 .animate-fade-in {
-  animation: fadeInUp 0.6s ease-out forwards;
+  animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* ============ SCROLLBAR ============ */

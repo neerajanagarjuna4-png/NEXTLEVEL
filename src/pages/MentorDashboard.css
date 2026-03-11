@@ -55,7 +55,7 @@
 }
 
 .mentor-stat-card:hover {
-  transform: translateY(-5px);
+  transform: translate3d(0, -5px, 0);
   box-shadow: var(--shadow-lg);
   border-color: var(--color-primary-light);
 }
@@ -180,7 +180,7 @@
   background: white;
   border-color: var(--color-primary-light);
   box-shadow: var(--shadow-md);
-  transform: scale(1.01);
+  transform: translate3d(0, 0, 0) scale(1.01);
 }
 
 .student-info {

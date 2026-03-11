@@ -48,7 +48,9 @@
   padding: var(--sp-10);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-xl);
-  animation: scaleIn 0.5s ease-out;
+  animation: scaleIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  transform: translate3d(0,0,0);
 }
 
 .mentor-photo-section { text-align: center; }
@@ -123,7 +125,7 @@
 .qual-item:hover {
   background: white;
   box-shadow: var(--shadow-md);
-  transform: translateX(5px);
+  transform: translate3d(5px, 0, 0);
 }
 
 .qual-icon { color: var(--color-primary); font-size: 1.2rem; }
@@ -234,7 +236,7 @@
 }
 
 .community-link:hover {
-  transform: translateY(-5px);
+  transform: translate3d(0, -5px, 0);
   box-shadow: var(--shadow-lg);
 }
 

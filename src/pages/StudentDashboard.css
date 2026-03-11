@@ -16,6 +16,7 @@
   z-index: 100;
   transition: transform var(--transition-base);
   box-shadow: var(--shadow-sm);
+  transform: translate3d(0,0,0);
 }
 
 .sidebar-brand {
@@ -79,7 +80,7 @@
 .sidebar-link:hover {
   background: var(--color-bg-primary);
   color: var(--color-primary);
-  transform: translateX(4px);
+  transform: translate3d(4px, 0, 0);
 }
 
 .sidebar-link.active {
@@ -169,7 +170,7 @@
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
+  transform: translate3d(0, -5px, 0);
   box-shadow: var(--shadow-lg);
 }
 
@@ -203,12 +204,14 @@
   border: 1px solid var(--color-border);
   padding: var(--sp-8);
   box-shadow: var(--shadow-md);
-  transition: var(--transition-base);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transform: translate3d(0,0,0);
 }
 
 .widget:hover {
   box-shadow: var(--shadow-lg);
   border-color: var(--color-primary-light);
+  transform: translate3d(0, -4px, 0);
 }
 
 @media (max-width: 1024px) {
