@@ -1,6 +1,9 @@
 {
   "name": "nextlevel",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "version": "1.0.0",
   "type": "module",
   "scripts": {
