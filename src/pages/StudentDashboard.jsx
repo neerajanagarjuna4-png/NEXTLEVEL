@@ -12,7 +12,11 @@ import RewardSystem from '../components/dashboard/RewardSystem.jsx'
 import Leaderboard from '../components/dashboard/Leaderboard.jsx'
 import PreparationTracker from '../components/dashboard/PreparationTracker.jsx'
 import DailyStudyReport from '../components/dashboard/DailyStudyReport.jsx'
+import PersonalTimetable from '../components/dashboard/PersonalTimetable.jsx'
+import MentorshipFlow from '../components/dashboard/MentorshipFlow.jsx'
+import BottomNav from '../components/common/BottomNav.jsx'
 import './StudentDashboard.css'
+
 
 function StudentDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -44,12 +48,13 @@ function StudentDashboard() {
     { id: 'tracker', icon: '🎯', label: 'Study Tracker' },
     { id: 'progress', icon: '📈', label: 'Progress' },
     { id: 'rewards', icon: '🏆', label: 'Rewards' },
+    { id: 'timetable', icon: '📅', label: 'My Timetable' },
+    { id: 'journey', icon: '🗺️', label: 'My Journey' },
     { id: 'leaderboard', icon: '🥇', label: 'Leaderboard' },
+    { id: 'mentor-profile', icon: '👨‍🏫', label: 'Mentor Profile' },
   ]
 
-  const quickLinks = [
-    { id: 'mentor', icon: '👨‍🏫', label: 'Mentor Profile' },
-  ]
+  const quickLinks = []
 
   const handleLogout = () => {
     localStorage.removeItem('user')
@@ -167,6 +172,11 @@ function StudentDashboard() {
                 <div className="widget glass"><WorkingHoursTracker /></div>
               </div>
 
+              {/* Mentorship Journey */}
+              <div className="widgets-grid" style={{ gridTemplateColumns: '1fr' }}>
+                <div className="widget glass"><MentorshipFlow /></div>
+              </div>
+
               {/* Progress + Rewards */}
               <div className="widgets-grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
                 <div className="widget glass"><ProgressVisualization branch={user.branch} userKey={userKey} /></div>
@@ -220,6 +230,56 @@ function StudentDashboard() {
             </div>
           )}
 
+          {/* My Timetable Tab */}
+          {activeTab === 'timetable' && (
+            <div className="widget glass">
+              <PersonalTimetable />
+            </div>
+          )}
+
+          {/* My Journey Tab */}
+          {activeTab === 'journey' && (
+            <div className="widget glass">
+              <MentorshipFlow />
+            </div>
+          )}
+
+          {/* Mentor Profile Tab */}
+          {activeTab === 'mentor-profile' && (
+            <div className="widget glass mentor-profile-tab">
+              <div className="mp-hero">
+                <div className="mp-avatar">👨‍🏫</div>
+                <div className="mp-info">
+                  <h2>Bhima Sankar Sir</h2>
+                  <p>MTech – IIT Kharagpur &nbsp;|&nbsp; PhD – IIIT Hyderabad</p>
+                  <p>Founder of NEXT_LEVEL &nbsp;|&nbsp; 14+ Years Experience</p>
+                  <span className="mp-badge">Your Personal Mentor 🌟</span>
+                </div>
+              </div>
+              <div className="mp-links">
+                <a href="https://m.youtube.com/@Next_Level_by_Bhima_Sankar" target="_blank" rel="noreferrer" className="mp-link youtube">▶ YouTube</a>
+                <a href="https://Nextlevel.akamai.net.in" target="_blank" rel="noreferrer" className="mp-link website">🌐 Website</a>
+                <a href="https://t.me/shankar10GATE" target="_blank" rel="noreferrer" className="mp-link telegram">✈ Telegram</a>
+                <a href="https://chat.whatsapp.com/EyUYumDUZVc2KJ6kkpvVLn" target="_blank" rel="noreferrer" className="mp-link whatsapp">💬 WhatsApp</a>
+              </div>
+              <style>{`
+                .mentor-profile-tab { text-align:center; }
+                .mp-hero { display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:20px; }
+                .mp-avatar { font-size:80px; }
+                .mp-info h2 { margin:0; font-size:1.4rem; font-weight:900; color:#0F172A; }
+                .mp-info p { margin:4px 0; color:#475569; font-size:0.88rem; }
+                .mp-badge { display:inline-block; background:#FFF7ED; color:#F97316; padding:4px 14px; border-radius:20px; font-size:0.8rem; font-weight:800; margin-top:8px; }
+                .mp-links { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
+                .mp-link { padding:12px 22px; border-radius:12px; font-weight:800; font-size:0.9rem; text-decoration:none; transition:all 0.2s; }
+                .mp-link:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.15); }
+                .youtube { background:#FF0000; color:#fff; }
+                .website { background:#0F172A; color:#fff; }
+                .telegram { background:#0088cc; color:#fff; }
+                .whatsapp { background:#25D366; color:#fff; }
+              `}</style>
+            </div>
+          )}
+
           {/* Leaderboard Tab */}
           {activeTab === 'leaderboard' && (
             <div className="widget glass">
@@ -228,6 +288,7 @@ function StudentDashboard() {
           )}
         </div>
       </main>
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   )
 }

@@ -2,6 +2,8 @@ import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
+import Timetable from '../models/Timetable.js';
+import MentorshipStep from '../models/MentorshipStep.js';
 
 // ──────────────────────────────────────────────
 // METRICS (Issue #1)
@@ -337,6 +339,113 @@ export const updateDailyTasks = async (req, res) => {
     res.json(taskDoc);
   } catch (error) {
     console.error('updateDailyTasks error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ──────────────────────────────────────────────
+// TIMETABLE (Student side)
+// ──────────────────────────────────────────────
+
+// GET /api/student/timetable
+export const getTimetable = async (req, res) => {
+  try {
+    const timetable = await Timetable.findOne({ studentId: req.user._id }).sort({ weekStart: -1 });
+    res.json({ timetable: timetable || null });
+  } catch (error) {
+    console.error('getTimetable error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /api/student/timetable-complete
+export const markTimetableDayComplete = async (req, res) => {
+  try {
+    const { timetableId, day, completed } = req.body;
+    if (!timetableId || !day) {
+      return res.status(400).json({ message: 'timetableId and day are required' });
+    }
+
+    const timetable = await Timetable.findOne({ _id: timetableId, studentId: req.user._id });
+    if (!timetable) return res.status(404).json({ message: 'Timetable not found' });
+
+    const dayEntry = timetable.days.find(d => d.day === day);
+    if (dayEntry) {
+      dayEntry.studentCompleted = completed;
+      dayEntry.studentCompletedAt = completed ? new Date() : null;
+    }
+    await timetable.save();
+    res.json({ success: true, timetable });
+  } catch (error) {
+    console.error('markTimetableDayComplete error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ──────────────────────────────────────────────
+// LEADERBOARD
+// ──────────────────────────────────────────────
+
+// GET /api/student/leaderboard
+export const getLeaderboard = async (req, res) => {
+  try {
+    const students = await User.find({ role: 'student', status: 'approved' })
+      .select('name branch consistencyScore streak badges')
+      .sort({ consistencyScore: -1, streak: -1 })
+      .limit(10);
+
+    const currentUserId = req.user._id.toString();
+
+    // Get current user's rank
+    const allStudents = await User.find({ role: 'student', status: 'approved' })
+      .select('_id consistencyScore streak')
+      .sort({ consistencyScore: -1, streak: -1 });
+
+    const rank = allStudents.findIndex(s => s._id.toString() === currentUserId) + 1;
+
+    res.json({
+      leaderboard: students.map((s, i) => ({
+        rank: i + 1,
+        name: s.name,
+        branch: s.branch,
+        consistencyScore: s.consistencyScore,
+        streak: s.streak,
+        badges: s.badges?.length || 0,
+        isCurrentUser: s._id.toString() === currentUserId
+      })),
+      currentUserRank: rank > 0 ? rank : null
+    });
+  } catch (error) {
+    console.error('getLeaderboard error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ──────────────────────────────────────────────
+// MENTORSHIP STEPS (Student read-only)
+// ──────────────────────────────────────────────
+
+// GET /api/student/mentorship-steps
+export const getMentorshipSteps = async (req, res) => {
+  try {
+    const record = await MentorshipStep.findOne({ studentId: req.user._id });
+    if (!record) {
+      // Return default uncompleted steps
+      const defaultSteps = [
+        'Initial consultation and understanding your needs',
+        'Identify Your Goal',
+        'Fix the Resources',
+        'Plan the Schedule',
+        'Start Working',
+        'Regular Feedback',
+        'Weekly Zoom Call',
+        'Continuous Monitoring'
+      ].map((title, i) => ({ stepNumber: i + 1, title, completed: false, completedAt: null }));
+      return res.json({ steps: defaultSteps });
+    }
+    res.json({ steps: record.steps });
+  } catch (error) {
+    console.error('getMentorshipSteps error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

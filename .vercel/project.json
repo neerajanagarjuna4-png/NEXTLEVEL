@@ -1,1 +1,16 @@
-{"projectId":"prj_GPpNT1bcLPDDCs4fugMZ4etcElLp","orgId":"team_6XZsc8EgFgYdt4WPYEzWeqPq","projectName":"nextlevel"}
+{
+  "projectId": "prj_GPpNT1bcLPDDCs4fugMZ4etcElLp",
+  "orgId": "team_6XZsc8EgFgYdt4WPYEzWeqPq",
+  "projectName": "nextlevel",
+  "settings": {
+    "createdAt": 1772999208189,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
