@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const studyReportSchema = new mongoose.Schema({
   userId: {
@@ -26,4 +26,5 @@ const studyReportSchema = new mongoose.Schema({
 // Compound index to ensure one report per user per day
 studyReportSchema.index({ userId: 1, date: 1 }, { unique: true });
 
-module.exports = mongoose.model('StudyReport', studyReportSchema);
+const StudyReport = mongoose.model('StudyReport', studyReportSchema);
+export default StudyReport;

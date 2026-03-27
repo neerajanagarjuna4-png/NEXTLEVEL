@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import './Auth.css'
 
 function Signup() {
@@ -8,6 +9,7 @@ function Signup() {
   const [password, setPassword] = useState('')
   const [branch, setBranch] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const branches = [
@@ -27,55 +29,24 @@ function Signup() {
       return
     }
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    if (users.find(u => u.email === email)) {
-      setError('An account with this email already exists')
-      return
-    }
+    setLoading(true)
+    setError('')
 
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      branch,
-      role: 'student',
-      status: 'pending',
-      registeredAt: new Date().toISOString(),
-      streak: 0,
-      points: 0,
-      level: 1,
-      badges: [],
-      targets: { daily: 8, weekly: 50, monthly: 200 },
-    }
-
-    users.push(newUser)
-    localStorage.setItem('users', JSON.stringify(users))
-
-    // Send email notification to mentor via backend API
     try {
-      await fetch('/api/notify-mentor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentName: name, studentEmail: email, branch })
+      await axios.post('/api/auth/signup', {
+        name,
+        email: email.trim().toLowerCase(),
+        password,
+        branch
       })
+
+      navigate('/pending-approval')
     } catch (err) {
-      console.error('Failed to send email notification:', err)
+      const message = err.response?.data?.message || 'Signup failed. Please try again.'
+      setError(message)
+    } finally {
+      setLoading(false)
     }
-
-    // Save notification locally as well
-    const notifications = JSON.parse(localStorage.getItem('mentorNotifications') || '[]')
-    notifications.push({
-      id: Date.now().toString(),
-      type: 'new_registration',
-      studentName: name,
-      studentEmail: email,
-      branch,
-      date: new Date().toISOString(),
-      read: false,
-    })
-    localStorage.setItem('mentorNotifications', JSON.stringify(notifications))
-
-    navigate('/pending-approval')
   }
 
   return (
@@ -137,7 +108,9 @@ function Signup() {
               </div>
             </div>
 
-            <button type="submit" className="auth-submit">Request Mentorship</button>
+            <button type="submit" className="auth-submit" disabled={loading}>
+              {loading ? 'Registering...' : 'Request Mentorship'}
+            </button>
           </form>
 
           <div className="auth-footer">

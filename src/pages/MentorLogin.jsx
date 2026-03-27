@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import './Auth.css'
 
 function MentorLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -15,16 +17,31 @@ function MentorLogin() {
     }
   }, [navigate])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const normalizedEmail = email.trim().toLowerCase()
-    
-    if (normalizedEmail === 'sankar.bhima@gmail.com' && (password === 'masterpassword' || password === 'Bhima@123')) {
-      const mentor = { name: 'Bhima Sankar Sir', email: normalizedEmail, role: 'mentor', status: 'approved' }
-      localStorage.setItem('user', JSON.stringify(mentor))
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await axios.post('/api/auth/login', {
+        email: email.trim().toLowerCase(),
+        password
+      })
+
+      const { token, user } = response.data
+
+      if (user.role !== 'mentor') {
+        setError('This portal is for mentors only. Please use Student Login.')
+        return
+      }
+
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
       navigate('/mentor-dashboard')
-    } else {
-      setError('Invalid mentor credentials. Please check your email/password.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid mentor credentials. Please check your email/password.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,7 +80,9 @@ function MentorLogin() {
               />
             </div>
 
-            <button type="submit" className="auth-submit mentor-submit">Access Dashboard</button>
+            <button type="submit" className="auth-submit mentor-submit" disabled={loading}>
+              {loading ? 'Authenticating...' : 'Access Dashboard'}
+            </button>
           </form>
 
           <div className="auth-footer">

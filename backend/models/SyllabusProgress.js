@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const syllabusProgressSchema = new mongoose.Schema({
   userId: {
@@ -24,4 +24,5 @@ const syllabusProgressSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('SyllabusProgress', syllabusProgressSchema);
+const SyllabusProgress = mongoose.model('SyllabusProgress', syllabusProgressSchema);
+export default SyllabusProgress;

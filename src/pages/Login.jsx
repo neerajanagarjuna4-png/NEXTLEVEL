@@ -1,79 +1,54 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import './Auth.css'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // 1. Check if we should stay logged in
     const user = JSON.parse(localStorage.getItem('user'))
     if (user) {
       if (user.role === 'mentor') navigate('/mentor-dashboard')
       else navigate('/dashboard')
     }
-
-    // 2. IMPORTANT: Auto-initialize the "Database" if it's empty
-    // This ensures your accounts aren't "lost" on a new Netlify link
-    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
-    const hasSir = existingUsers.some(u => u.email === 'sankar.bhima@gmail.com')
-    const hasUser = existingUsers.some(u => u.email === 'neerajanagarjuna4@gmail.com')
-
-    if (!hasSir || !hasUser) {
-      const otherUsers = existingUsers.filter(u => u.email !== 'neerajanagarjuna4@gmail.com' && u.email !== 'sankar.bhima@gmail.com')
-      const initialUsers = [
-        ...otherUsers,
-        {
-          id: 'sir_master',
-          name: 'Bhima Sankar Sir',
-          email: 'sankar.bhima@gmail.com',
-          password: 'masterpassword',
-          role: 'mentor',
-          status: 'approved'
-        },
-        {
-          id: 'user_account',
-          name: 'Nagarjuna User',
-          email: 'nagarjunaneeraja4@gmail.com',
-          password: 'password123', // I set a default for new links
-          branch: 'ECE',
-          role: 'student',
-          status: 'approved',
-          registeredAt: new Date().toISOString()
-        }
-      ]
-      localStorage.setItem('users', JSON.stringify(initialUsers))
-    }
   }, [navigate])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!email || !password) {
       setError('Please fill in all fields')
       return
     }
-    
-    const normalizedEmail = email.trim().toLowerCase()
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    
-    // Find student (Note: Mentor is handled on /mentor-login)
-    const user = users.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password)
-    
-    if (!user) {
-      setError('Invalid student email or password. Are you a mentor? Use the link below.')
-      return
-    }
 
-    if (user.status === 'pending') {
-      navigate('/pending-approval')
-      return
-    }
+    setLoading(true)
+    setError('')
 
-    localStorage.setItem('user', JSON.stringify(user))
-    navigate('/dashboard')
+    try {
+      const response = await axios.post('/api/auth/login', {
+        email: email.trim().toLowerCase(),
+        password
+      })
+
+      const { token, user } = response.data
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
+
+      if (user.status === 'pending') {
+        navigate('/pending-approval')
+      } else {
+        navigate('/dashboard')
+      }
+    } catch (err) {
+      const message = err.response?.data?.message || 'Login failed. Please try again.'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -121,7 +96,9 @@ function Login() {
               </label>
             </div>
 
-            <button type="submit" className="auth-submit">Enter Student Dashboard</button>
+            <button type="submit" className="auth-submit" disabled={loading}>
+              {loading ? 'Signing in...' : 'Enter Student Dashboard'}
+            </button>
           </form>
 
           <div className="auth-footer">
