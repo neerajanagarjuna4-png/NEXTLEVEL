@@ -57,7 +57,7 @@ function StudentDashboard() {
   }
 
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-layout animate-fade-in">
       {/* Mobile overlay */}
       <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
 
@@ -69,8 +69,8 @@ function StudentDashboard() {
         <div className="sidebar-brand">
           <img src="/images/nextlevel-logo.jpg" alt="NEXT_LEVEL" className="sidebar-logo" />
           <div className="sidebar-brand-text">
-            <h2 style={{ fontSize: '1rem' }}>NextLevel Mentoring</h2>
-            <span style={{ textTransform: 'none', fontSize: '0.65rem' }}>by BhimaSankar.com</span>
+            <h2 className="gradient-text">NextLevel</h2>
+            <span>by Bhima Sankar Sir</span>
           </div>
         </div>
 
@@ -87,7 +87,7 @@ function StudentDashboard() {
             </div>
           ))}
 
-          <div className="sidebar-section-title" style={{ marginTop: '1rem' }}>Quick Links</div>
+          <div className="sidebar-section-title">Quick Links</div>
           {quickLinks.map(item => (
             <Link key={item.id} to="/mentor-profile" className="sidebar-link" onClick={() => setSidebarOpen(false)}>
               <span className="icon">{item.icon}</span>
@@ -100,8 +100,8 @@ function StudentDashboard() {
           <div className="sidebar-user" onClick={handleLogout} title="Click to Logout">
             <div className="sidebar-avatar">{firstName[0]}</div>
             <div className="sidebar-user-info">
-              <div className="name">{user.name || 'Student'}</div>
-              <div className="role">Logout 👋</div>
+              <div className="name" style={{ fontWeight: '700' }}>{user.name || 'Student'}</div>
+              <div className="role" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>Sign Out →</div>
             </div>
           </div>
         </div>
@@ -109,21 +109,15 @@ function StudentDashboard() {
 
       {/* Main content */}
       <main className="dashboard-main">
-        <header className="dashboard-header">
+        <header className="dashboard-header animate-fade-in">
           <div className="header-left">
-            <h1>{getGreeting()}, <span style={{ color: 'var(--color-primary)' }}>{firstName}</span> 👋</h1>
-            <p>Here's your GATE preparation summary for today</p>
+            <h1>{getGreeting()}, <span className="gradient-text">{firstName}</span> 👋</h1>
+            <p>Welcome back to your premium mentorship portal</p>
           </div>
           <div className="header-right">
-            <div className="header-search">
-              <span className="search-icon">🔍</span>
+            <div className="header-search glass">
+              <span>🔍</span>
               <input type="text" placeholder="Search topics..." />
-            </div>
-            <div className="header-notification">
-              🔔
-              {notifications.length > 0 && (
-                <span className="notification-badge">{notifications.length}</span>
-              )}
             </div>
           </div>
         </header>
@@ -133,69 +127,57 @@ function StudentDashboard() {
           {activeTab === 'overview' && (
             <>
               {/* Stats */}
-              <div className="stats-grid">
+              <div className="stats-grid animate-fade-in">
                 <div className="stat-card blue">
-                  <div className="stat-header">
-                    <div className="stat-icon">📖</div>
-                    <span className="stat-label">Study Hours</span>
-                  </div>
-                  <div className="stat-value">6.5h</div>
-                  <span className="stat-change positive">↑ 12% from yesterday</span>
+                  <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Study Hours</span>
+                  <span className="stat-value gradient-text">6.5h</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ 12% increase</p>
                 </div>
                 <div className="stat-card purple">
-                  <div className="stat-header">
-                    <div className="stat-icon">✅</div>
-                    <span className="stat-label">Tasks Done</span>
-                  </div>
-                  <div className="stat-value">8/12</div>
-                  <span className="stat-change positive">↑ 3 more than avg</span>
+                  <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Tasks Done</span>
+                  <span className="stat-value" style={{ color: 'var(--color-secondary)' }}>8/12</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ Moving fast</p>
                 </div>
                 <div className="stat-card green">
-                  <div className="stat-header">
-                    <div className="stat-icon">📋</div>
-                    <span className="stat-label">Syllabus</span>
-                  </div>
-                  <div className="stat-value">42%</div>
-                  <span className="stat-change positive">↑ 2% this week</span>
+                  <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Syllabus</span>
+                  <span className="stat-value" style={{ color: 'var(--color-success)' }}>42%</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ On track</p>
                 </div>
                 <div className="stat-card warm">
-                  <div className="stat-header">
-                    <div className="stat-icon">🔥</div>
-                    <span className="stat-label">Streak</span>
-                  </div>
-                  <div className="stat-value">15</div>
-                  <span className="stat-change positive">days in a row!</span>
+                  <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Streak</span>
+                  <span className="stat-value" style={{ color: 'var(--color-warning)' }}>15</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-warning)', fontWeight: '700', marginTop: '4px' }}>🔥 Master streak</p>
                 </div>
               </div>
 
               {/* GATE Countdown */}
               <div className="widgets-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <div className="widget"><GATECountdown /></div>
+                <div className="widget glass"><GATECountdown /></div>
               </div>
 
               {/* Preparation Tracker */}
               <div className="widgets-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <div className="widget"><PreparationTracker /></div>
+                <div className="widget glass"><PreparationTracker /></div>
               </div>
 
               {/* Motivation + Tasks + Hours */}
               <div className="widgets-grid">
-                <div className="widget"><MotivationQuotes /></div>
-                <div className="widget"><DailyTaskChecklist /></div>
-                <div className="widget"><WorkingHoursTracker /></div>
+                <div className="widget glass"><MotivationQuotes /></div>
+                <div className="widget glass"><DailyTaskChecklist /></div>
+                <div className="widget glass"><WorkingHoursTracker /></div>
               </div>
 
               {/* Progress + Rewards */}
               <div className="widgets-grid" style={{ gridTemplateColumns: '2fr 1fr' }}>
-                <div className="widget"><ProgressVisualization branch={user.branch} userKey={userKey} /></div>
-                <div className="widget"><RewardSystem userKey={userKey} /></div>
+                <div className="widget glass"><ProgressVisualization branch={user.branch} userKey={userKey} /></div>
+                <div className="widget glass"><RewardSystem userKey={userKey} /></div>
               </div>
             </>
           )}
 
           {/* Syllabus Tab */}
           {activeTab === 'syllabus' && (
-            <div className="widget" style={{ maxWidth: '100%' }}>
+            <div className="widget glass" style={{ maxWidth: '100%' }}>
               <SyllabusChecklist branch={user.branch || 'ECE'} userKey={userKey} />
             </div>
           )}
@@ -203,14 +185,14 @@ function StudentDashboard() {
           {/* Tasks Tab */}
           {activeTab === 'tasks' && (
             <div className="widgets-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="widget"><DailyTaskChecklist fullView /></div>
-              <div className="widget"><WorkingHoursTracker /></div>
+              <div className="widget glass"><DailyTaskChecklist fullView /></div>
+              <div className="widget glass"><WorkingHoursTracker /></div>
             </div>
           )}
 
           {/* Daily Report Tab */}
           {activeTab === 'report' && (
-            <div className="widget" style={{ maxWidth: '900px' }}>
+            <div className="widget glass" style={{ maxWidth: '900px', margin: '0 auto' }}>
               <DailyStudyReport userKey={userKey} />
             </div>
           )}
@@ -218,14 +200,14 @@ function StudentDashboard() {
           {/* Study Tracker Tab */}
           {activeTab === 'tracker' && (
             <div className="widgets-grid" style={{ gridTemplateColumns: '1fr' }}>
-              <div className="widget"><PreparationTracker userKey={userKey} /></div>
-              <div className="widget"><WorkingHoursTracker userKey={userKey} /></div>
+              <div className="widget glass"><PreparationTracker userKey={userKey} /></div>
+              <div className="widget glass"><WorkingHoursTracker userKey={userKey} /></div>
             </div>
           )}
 
           {/* Progress Tab */}
           {activeTab === 'progress' && (
-            <div className="widget">
+            <div className="widget glass">
               <ProgressVisualization branch={user.branch} userKey={userKey} fullView />
             </div>
           )}
@@ -233,14 +215,14 @@ function StudentDashboard() {
           {/* Rewards Tab */}
           {activeTab === 'rewards' && (
             <div className="widgets-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="widget"><RewardSystem /></div>
-              <div className="widget"><Leaderboard /></div>
+              <div className="widget glass"><RewardSystem /></div>
+              <div className="widget glass"><Leaderboard /></div>
             </div>
           )}
 
           {/* Leaderboard Tab */}
           {activeTab === 'leaderboard' && (
-            <div className="widget">
+            <div className="widget glass">
               <Leaderboard fullView />
             </div>
           )}

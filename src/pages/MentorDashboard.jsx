@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { getSyllabus } from '../data/syllabus.js'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './MentorDashboard.css'
 
 function MentorDashboard() {
@@ -206,11 +205,14 @@ function MentorDashboard() {
     .filter(s => !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.email?.toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <div className="mentor-dash">
-      <header className="mentor-dash-header">
-        <div>
-          <h1>Mentor Dashboard</h1>
-          <p>Welcome, Bhima Sankar Sir</p>
+    <div className="mentor-dash-page animate-fade-in">
+      <header className="mentor-header-premium">
+        <div className="header-content">
+          <div className="header-info">
+            <h1 className="gradient-text">Mentor Dashboard</h1>
+            <p className="welcome-msg">Welcome back, Bhima Sankar Sir</p>
+          </div>
+          <button className="logout-btn-premium" onClick={handleLogout}>Logout →</button>
         </div>
         <button className="btn-outline" onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/login') }}>Logout</button>
       </header>
@@ -262,7 +264,6 @@ function MentorDashboard() {
             ))}
           </div>
         </div>
-      )}
 
       {/* All Students */}
       <div className="card mentor-section">
@@ -298,14 +299,38 @@ function MentorDashboard() {
                 <span className="branch-tag">{s.branch}</span>
                 <span className={`status-tag ${s.status}`}>{s.status}</span>
               </div>
-              <span className="view-detail-btn">View Progress →</span>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Student Detail Modal */}
-      {renderStudentDetail()}
+          <div className="m-student-list">
+            {filtered.length === 0 && <p className="no-data">No students matching your criteria.</p>}
+            {filtered.map(student => (
+              <div key={student.id} className={`m-student-item ${student.status}-row`}>
+                <div className="m-stud-info">
+                  <div className="m-stud-avatar">{student.name[0]}</div>
+                  <div className="m-stud-details">
+                    <span className="m-name">{student.name}</span>
+                    <span className="m-email">{student.email}</span>
+                  </div>
+                </div>
+                <div className="m-stud-branch">
+                  <span className="m-branch-tag">{student.branch}</span>
+                </div>
+                <div className="m-stud-status">
+                  <span className={`m-status-tag ${student.status}`}>{student.status}</span>
+                </div>
+                <div className="m-stud-actions">
+                  {student.status === 'pending' ? (
+                    <button className="m-action-btn primary" onClick={() => handleApprove(student.id)}>Approve</button>
+                  ) : (
+                    <button className="m-action-btn secondary">View Growth →</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
     </div>
   )
 }

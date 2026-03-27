@@ -23,9 +23,10 @@ function GATECountdown() {
   }, [])
 
   return (
-    <div className="gate-countdown">
-      <div className="countdown-header">
-        <span className="countdown-label">GATE 2027 COUNTDOWN</span>
+    <div className="countdown-container glass animate-fade-in">
+      <div className="countdown-title">
+        <span className="icon">🚀</span>
+        <h3 className="gradient-text">GATE 2026 Countdown</h3>
       </div>
       <div className="countdown-timer">
         <div className="time-block">

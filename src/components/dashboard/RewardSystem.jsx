@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import './RewardSystem.css'
 
-function RewardSystem() {
+function RewardSystem({ userKey }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const userId = user.id || user.email || 'default'
+  const currentUserId = userKey || user.id || user.email || 'default'
 
   // Calculate streak from study reports
   const getStreakAndBadges = () => {
-    const saved = localStorage.getItem(`studyReports_${userId}`)
+    const saved = localStorage.getItem(`studyReports_${currentUserId}`)
     if (!saved) return { streak: 0, badges: [], points: user.points || 0 }
     const reports = JSON.parse(saved)
     const points = user.points || reports.length * 60
@@ -59,7 +59,7 @@ function RewardSystem() {
   const level = Math.floor(points / 500) + 1
 
   return (
-    <div className="reward-widget">
+    <div className="reward-widget glass animate-fade-in">
       <div className="reward-header">
         <h3>🏆 Achievements</h3>
         <span className="points-badge">{points.toLocaleString()} PTS</span>

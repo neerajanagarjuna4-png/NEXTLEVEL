@@ -46,16 +46,16 @@ function MentorLogin() {
   }
 
   return (
-    <div className="auth-page mentor-auth">
+    <div className="auth-page mentor-auth animate-fade-in">
       <div className="auth-container">
-        <div className="auth-card">
+        <div className="auth-card glass">
           <div className="auth-logo">
             <img src="/images/nextlevel-logo.jpg" alt="NEXT_LEVEL" className="auth-logo-img" />
-            <h1>Mentor Portal</h1>
+            <h1 className="gradient-text">Mentor Portal</h1>
             <p className="tagline">Personal Guidance Dashboard — Bhima Sankar Sir</p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error animate-fade-in">{error}</div>}
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
@@ -86,7 +86,7 @@ function MentorLogin() {
           </form>
 
           <div className="auth-footer">
-            <Link to="/login">Back to Student Login</Link>
+            <Link to="/login" style={{ fontWeight: '700', color: 'var(--color-primary)' }}>Back to Student Login</Link>
           </div>
         </div>
       </div>
