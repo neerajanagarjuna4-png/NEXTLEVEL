@@ -66,6 +66,35 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── MongoDB Connection (Cached for Serverless) ─────────────
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/nextlevel';
+const PORT = process.env.PORT || 5000;
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected || mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
+    isConnected = true;
+    console.log('✅ Connected to MongoDB');
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err.message);
+    isConnected = false;
+  }
+};
+
+// Ensure DB is connected before any API route
+app.use('/api', async (req, res, next) => {
+  await connectDB();
+  next();
+});
+
 // ─── Health Check ───────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
@@ -114,34 +143,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── MongoDB Connection & Server Start ──────────────────────
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/nextlevel';
-const PORT = process.env.PORT || 5000;
-
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-
-    // Start cron jobs (only on standalone server, not serverless)
-    if (!process.env.VERCEL) {
-      initCronJobs();
-    }
-
-    // Only listen on port if not running as serverless function
-    if (!process.env.VERCEL) {
-      app.listen(PORT, () => {
-        console.log(`🚀 NEXT_LEVEL Backend running on port ${PORT}`);
-        console.log(`📡 API: http://localhost:${PORT}/api/health`);
-      });
-    }
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection failed:', err.message);
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
-    }
+// ─── Standalone Server Start ────────────────────────────────
+if (!process.env.VERCEL) {
+  connectDB().then(() => {
+    initCronJobs();
+    app.listen(PORT, () => {
+      console.log(`🚀 NEXT_LEVEL Backend running on port ${PORT}`);
+      console.log(`📡 API: http://localhost:${PORT}/api/health`);
+    });
   });
+}
 
 // ─── Serverless Export (for Vercel) ─────────────────────────
 export default serverlessHttp(app);
+
