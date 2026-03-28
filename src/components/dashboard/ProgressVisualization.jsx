@@ -1,163 +1,170 @@
-import { useState } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
-import { getSyllabus } from '../../data/syllabus.js'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import { Line, Doughnut } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import './ProgressVisualization.css'
 
-function ProgressVisualization({ branch, fullView, userKey }) {
-  const [view, setView] = useState('overall') // overall, high, medium
-  
-  // Dynamic mock calculation for visualization
-  // Calculate real data from localStorage
-  const getProgressData = () => {
-    const syllabus = getSyllabus(branch)
-    const storageKey = `syllabusProgress_${userKey || branch}`
-    const savedProgress = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    
-    let totalTopics = 0
-    let completedTopics = 0
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
 
-    // Filter by view (priority)
-    const filteredSyllabus = syllabus.filter(section => {
-      if (view === 'overall') return true
-      // Include 'foundation' in High Priority as it's crucial
-      if (view === 'high') return section.priority === 'high' || section.priority === 'foundation'
-      if (view === 'medium') return section.priority === 'medium'
-      return true
-    })
+function ProgressVisualization({ branch, fullView }) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const token = localStorage.getItem('token')
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(true)
 
-    filteredSyllabus.forEach(section => {
-      section.subjects.forEach(sub => {
-        sub.topics.forEach(topic => {
-          totalTopics++
-          const topicId = `${sub.id}-${topic.name}`
-          if (savedProgress[topicId]) {
-            completedTopics++
-          }
-        })
+  useEffect(() => {
+    if (user._id && token) fetchReports()
+  }, [])
+
+  const fetchReports = async () => {
+    try {
+      // Fetch last 30 days of reports
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 30)
+
+      const res = await axios.get(`/api/student/study-reports/${user._id}`, {
+        params: { start: start.toISOString(), end: end.toISOString() },
+        headers: { Authorization: `Bearer ${token}` }
       })
-    })
+      setReports(res.data.reports || [])
+    } catch (err) {
+      console.error('Failed to fetch reports for charts:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    const notStartedTopics = totalTopics - completedTopics
-    
-    // Convert to percentages for the pie chart
-    const completedPct = totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100)
-    const notStartedPct = totalTopics === 0 ? 100 : Math.round((notStartedTopics / totalTopics) * 100)
-    
-    return [
-      { name: 'Completed', value: completedPct, color: 'var(--color-success)' },
-      { name: 'Not Started', value: notStartedPct, color: '#e2e8f0' }
+  // Build chart data from reports
+  const buildChartData = () => {
+    const last14 = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateStr = d.toISOString().split('T')[0]
+      const dayName = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })
+      
+      const report = reports.find(r => {
+        const rDate = new Date(r.date).toISOString().split('T')[0]
+        return rDate === dateStr
+      })
+
+      last14.push({
+        label: dayName,
+        hours: report?.studyHours || 0,
+        pyqs: report?.pyqsSolved || 0,
+        accuracy: report?.accuracy || 0
+      })
+    }
+    return last14
+  }
+
+  const chartData = buildChartData()
+  const totalHours = reports.reduce((sum, r) => sum + (r.studyHours || 0), 0)
+  const totalPYQs = reports.reduce((sum, r) => sum + (r.pyqsSolved || 0), 0)
+  const avgAccuracy = reports.length > 0 
+    ? Math.round(reports.reduce((sum, r) => sum + (r.accuracy || 0), 0) / reports.length) 
+    : 0
+
+  const lineConfig = {
+    labels: chartData.map(d => d.label),
+    datasets: [
+      {
+        label: 'Study Hours',
+        data: chartData.map(d => d.hours),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#3b82f6',
+        pointBorderWidth: 2,
+        pointRadius: 3
+      },
+      {
+        label: 'PYQs Solved',
+        data: chartData.map(d => d.pyqs),
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#10b981',
+        pointBorderWidth: 2,
+        pointRadius: 3
+      }
     ]
   }
 
-  const getSubjectData = () => {
-    const syllabus = getSyllabus(branch)
-    const storageKey = `syllabusProgress_${userKey || branch}`
-    const savedProgress = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    
-    let subjectStats = []
-    
-    const priorityWeights = {
-      'foundation': 4,
-      'high': 3,
-      'medium': 2,
-      'supporting': 1
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { font: { size: 11, weight: 700 } } }
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } }
     }
-
-    // Filter by view (priority)
-    const filteredSyllabus = syllabus.filter(section => {
-      if (view === 'overall') return true
-      if (view === 'high') return section.priority === 'high' || section.priority === 'foundation'
-      if (view === 'medium') return section.priority === 'medium'
-      return true
-    })
-
-    filteredSyllabus.forEach(section => {
-      section.subjects.forEach(sub => {
-        let subTotal = 0
-        let subCompleted = 0
-        
-        sub.topics.forEach(topic => {
-          subTotal++
-          const topicId = `${sub.id}-${topic.name}`
-          if (savedProgress[topicId]) subCompleted++
-        })
-
-        if (subTotal > 0) {
-          subjectStats.push({
-            name: sub.name,
-            pct: Math.round((subCompleted / subTotal) * 100),
-            weight: priorityWeights[section.priority] || 0
-          })
-        }
-      })
-    })
-
-    // Sort by priority weight DESC, then by percentage DESC, then alphabetically
-    return subjectStats.sort((a, b) => {
-      if (b.weight !== a.weight) return b.weight - a.weight
-      if (b.pct !== a.pct) return b.pct - a.pct
-      return a.name.localeCompare(b.name)
-    })
   }
 
-  const data = getProgressData()
-  const subjectData = getSubjectData()
+  // Doughnut for subject distribution
+  const subjectMap = {}
+  reports.forEach(r => {
+    if (r.subject) {
+      subjectMap[r.subject] = (subjectMap[r.subject] || 0) + (r.studyHours || 0)
+    }
+  })
+  const subjectLabels = Object.keys(subjectMap)
+  const subjectHours = Object.values(subjectMap)
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+
+  const doughnutData = {
+    labels: subjectLabels.length > 0 ? subjectLabels : ['No data'],
+    datasets: [{
+      data: subjectHours.length > 0 ? subjectHours : [1],
+      backgroundColor: subjectLabels.length > 0 ? colors.slice(0, subjectLabels.length) : ['#e2e8f0'],
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  }
+
+  if (loading) return <div className="progress-viz"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading charts...</p></div>
 
   return (
-    <div className={`progress-viz-widget ${fullView ? 'full' : ''}`}>
-      <div className="viz-header">
-        <h3>📊 {branch} Progress Analytics</h3>
-        <select value={view} onChange={e => setView(e.target.value)} className="viz-select">
-          <option value="overall">Overall</option>
-          <option value="high">High Priority</option>
-          <option value="medium">Medium Priority</option>
-        </select>
-      </div>
+    <div className="progress-viz">
+      <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '16px' }}>📈 Progress Visualization</h3>
 
-      <div className="viz-content">
-        <div className="pie-chart-container">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-                stroke="none"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <RechartsTooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="pie-center-text">
-            <span>{data[0].value}%</span>
-            <label>Done</label>
-          </div>
+      {/* Summary cards */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div className="summary-card" style={{ flex: 1, minWidth: '100px' }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>30-Day Hours</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#3b82f6' }}>{totalHours.toFixed(1)}</div>
         </div>
-
-        <div className="subject-bars">
-          <h4>Subject Breakdown</h4>
-          {subjectData.map((sub, i) => (
-            <div key={i} className="sub-bar-row">
-              <div className="sub-bar-info">
-                <span className="sub-name">{sub.name}</span>
-                <span className="sub-pct">{sub.pct}%</span>
-              </div>
-              <div className="sub-bar-bg">
-                <div className="sub-bar-fill" style={{ width: `${sub.pct}%` }}></div>
-              </div>
-            </div>
-          ))}
+        <div className="summary-card" style={{ flex: 1, minWidth: '100px' }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>Total PYQs</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#10b981' }}>{totalPYQs}</div>
+        </div>
+        <div className="summary-card" style={{ flex: 1, minWidth: '100px' }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>Avg Accuracy</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f59e0b' }}>{avgAccuracy}%</div>
+        </div>
+        <div className="summary-card" style={{ flex: 1, minWidth: '100px' }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>Reports</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#8b5cf6' }}>{reports.length}</div>
         </div>
       </div>
+
+      {/* Line Chart */}
+      <div style={{ height: fullView ? '350px' : '250px', marginBottom: '20px' }}>
+        <Line data={lineConfig} options={lineOptions} />
+      </div>
+
+      {/* Subject Distribution */}
+      {fullView && subjectLabels.length > 0 && (
+        <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textAlign: 'center', marginBottom: '12px' }}>📊 Subject Distribution</h4>
+          <Doughnut data={doughnutData} options={{ plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }} />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,127 +1,127 @@
-import { useState, useEffect } from 'react'
-import { getSyllabus, countAllTopics } from '../../data/syllabus.js'
+import { useState, useEffect, useCallback } from 'react'
+import axios from 'axios'
+import { getSyllabus } from '../../data/syllabus.js'
 import './SyllabusChecklist.css'
 
-function SyllabusChecklist({ branch, userKey }) {
+function SyllabusChecklist({ branch }) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const token = localStorage.getItem('token')
+
   const [syllabus, setSyllabus] = useState([])
   const [progress, setProgress] = useState({})
+  const [overallStats, setOverallStats] = useState({ total: 0, completed: 0, percentage: 0 })
   const [expandedSection, setExpandedSection] = useState('High Priority Subjects')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const data = getSyllabus(branch)
     setSyllabus(data)
-    
-    // Load progress from local storage - Scoped by userKey
-    const storageKey = `syllabusProgress_${userKey || branch}`
-    const savedProgress = localStorage.getItem(storageKey)
-    if (savedProgress) {
-      setProgress(JSON.parse(savedProgress))
+    if (user._id && token) {
+      fetchProgress()
+    } else {
+      setLoading(false)
     }
-  }, [branch, userKey])
+  }, [branch])
 
-  const handleToggleSubtopic = (subjectName, topicName, subtopicName) => {
-    const key = `${subjectName}_${topicName}_${subtopicName}`
-    const newProgress = { ...progress, [key]: !progress[key] }
-    setProgress(newProgress)
-    const storageKey = `syllabusProgress_${userKey || branch}`
-    localStorage.setItem(storageKey, JSON.stringify(newProgress))
+  const fetchProgress = async () => {
+    try {
+      const res = await axios.get(`/api/student/syllabus-progress/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      // Build a lookup map from the API progress array
+      const progressMap = {}
+      if (res.data.progress) {
+        res.data.progress.forEach(p => {
+          const key = `${p.subjectIndex}_${p.topicIndex}_${p.subtopicIndex}`
+          progressMap[key] = p.completed
+        })
+      }
+      setProgress(progressMap)
+      setOverallStats({
+        total: res.data.totalSubtopics || 0,
+        completed: res.data.completedSubtopics || 0,
+        percentage: res.data.percentage || 0
+      })
+    } catch (err) {
+      console.error('Failed to fetch syllabus progress:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const isSubtopicCompleted = (subjectName, topicName, subtopicName) => {
-    const key = `${subjectName}_${topicName}_${subtopicName}`
+  const handleToggleSubtopic = async (subjectName, topicName, subtopicName, subjectIndex, topicIndex, subtopicIndex) => {
+    const key = `${subjectIndex}_${topicIndex}_${subtopicIndex}`
+    const newCompleted = !progress[key]
+    
+    // Optimistic update
+    setProgress(prev => ({ ...prev, [key]: newCompleted }))
+
+    try {
+      const res = await axios.post(`/api/student/syllabus-progress/${user._id}`, {
+        subjectIndex,
+        topicIndex,
+        subtopicIndex,
+        completed: newCompleted
+      }, { headers: { Authorization: `Bearer ${token}` } })
+
+      setOverallStats({
+        total: res.data.totalSubtopics || overallStats.total,
+        completed: res.data.completedSubtopics || 0,
+        percentage: res.data.percentage || 0
+      })
+    } catch (err) {
+      console.error('Failed to update syllabus:', err)
+      // Revert on error
+      setProgress(prev => ({ ...prev, [key]: !newCompleted }))
+    }
+  }
+
+  // Index-based check using flattened indexes from the local data
+  const isCompleted = (sectionIdx, subjectIdx, topicIdx) => {
+    // Map (section, subject, topic) to the flat (subjectIndex, topicIndex, subtopicIndex)
+    // The backend uses: subjectIndex = index across all subjects in the branch
+    // Since the frontend groups by section, we need a mapping
+    const key = `${sectionIdx}_${subjectIdx}_${topicIdx}`
     return progress[key] === true
   }
 
-  const getTopicProgress = (subjectName, topicName, subtopics) => {
-    if (!subtopics || subtopics.length === 0) return { completed: 0, total: 0, percentage: 0 }
-    
+  const getSubjectProgress = (sectionIdx, subjectIdx, topics) => {
     let completed = 0
-    subtopics.forEach(sub => {
-      if (isSubtopicCompleted(subjectName, topicName, sub)) completed++
+    topics.forEach((_, tIdx) => {
+      if (progress[`${sectionIdx}_${subjectIdx}_${tIdx}`]) completed++
     })
-    
     return {
       completed,
-      total: subtopics.length,
-      percentage: Math.round((completed / subtopics.length) * 100)
-    }
-  }
-
-  const getSubjectProgress = (subject) => {
-    let completed = 0
-    let total = 0
-    
-    subject.topics.forEach(topic => {
-      // In this version, the topics array directly contains subtopics strings
-      // We'll treat the subject itself as having topics, and the topics array elements as subtopics due to the flat structure for simplicity.
-      // Actually, looking at the data structure: subject = { name: "NETWORKS", topics: ["Superposition", "Thevenin...", ...] }
-      // So subjectName = "NETWORKS", subtopicName = "Superposition"
-      if (isSubtopicCompleted(subject.name, 'General', topic)) completed++
-      total++
-    })
-    
-    return {
-      completed,
-      total,
-      percentage: total === 0 ? 0 : Math.round((completed / total) * 100)
+      total: topics.length,
+      percentage: topics.length === 0 ? 0 : Math.round((completed / topics.length) * 100)
     }
   }
 
   const getOverallProgress = () => {
     let completed = 0
     let total = 0
-    
-    syllabus.forEach(section => {
-      section.subjects.forEach(subject => {
-        const stats = getSubjectProgress(subject)
-        completed += stats.completed
-        total += stats.total
+    syllabus.forEach((section, sIdx) => {
+      section.subjects.forEach((subject, subIdx) => {
+        subject.topics.forEach((_, tIdx) => {
+          total++
+          if (progress[`${sIdx}_${subIdx}_${tIdx}`]) completed++
+        })
       })
     })
-    
     return {
       completed,
       total,
       percentage: total === 0 ? 0 : Math.round((completed / total) * 100),
-      hoursLeft: (total - completed) * 2 // Estimate 2 hours per topic
+      hoursLeft: (total - completed) * 2
     }
   }
 
-  const getRecommendation = () => {
-    const allSubjects = syllabus
-      .filter(section => section.priority === 'foundation' || section.priority === 'high')
-      .flatMap(section => section.subjects)
-    
-    if (allSubjects.length === 0) return null
+  const overall = overallStats.total > 0 ? overallStats : getOverallProgress()
 
-    // Find the core subject with lowest percentage
-    const stats = allSubjects.map(sub => ({
-      name: sub.name,
-      ...getSubjectProgress(sub)
-    }))
-
-    const leastCompleted = stats.sort((a, b) => a.percentage - b.percentage)[0]
-    return leastCompleted
-  }
-
-  const overall = getOverallProgress()
-  const recommendation = getRecommendation()
+  if (loading) return <div className="syllabus-checklist"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading syllabus...</p></div>
 
   return (
     <div className="syllabus-checklist">
-      {/* Inserted Countdown Component */}
-      <div className="countdown-container glass animate-fade-in">
-        <div className="countdown-title">
-          <span className="icon">🚀</span>
-          <h3 className="gradient-text">GATE 2026 Countdown</h3>
-        </div>
-        {/* Placeholder for actual countdown logic */}
-        <div className="countdown-display">
-          {/* Example: 123 Days 04 Hours 30 Mins */}
-          <span className="countdown-value">--</span> Days <span className="countdown-value">--</span> Hours <span className="countdown-value">--</span> Mins
-        </div>
-      </div>
-
       <div className="syllabus-header">
         <h2 className="section-title">📚 {branch} Syllabus Progress</h2>
         <div className="overall-progress-bar">
@@ -130,16 +130,11 @@ function SyllabusChecklist({ branch, userKey }) {
         <div className="overall-stats">
           <span>Overall: {overall.percentage}% Complete</span>
           <span>{overall.completed}/{overall.total} Topics</span>
-          <span className="est-time">⏱️ Est. {overall.hoursLeft} hours left</span>
+          <span className="est-time">⏱️ Est. {(overall.total - overall.completed) * 2} hours left</span>
         </div>
       </div>
 
-      {recommendation && (
-        <div className="smart-recommendation">
-          <strong>📌 Smart Recommendation:</strong> Focus on <span>{recommendation.name}</span> - {recommendation.percentage === 0 ? 'Not started yet.' : `Only ${recommendation.percentage}% complete.`}
-        </div>
-      )}
-
+      {/* Subject Breakdown */}
       <div className="subject-breakdown-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3>Subject Breakdown</h3>
@@ -151,9 +146,9 @@ function SyllabusChecklist({ branch, userKey }) {
               const weights = { foundation: 4, high: 3, medium: 2, supporting: 1 }
               return (weights[b.priority] || 0) - (weights[a.priority] || 0)
             })
-            .flatMap(section => section.subjects.map(s => ({ ...s, priority: section.priority })))
+            .flatMap((section, sIdx) => section.subjects.map((s, subIdx) => ({ ...s, priority: section.priority, sIdx, subIdx })))
             .map((subject, idx) => {
-              const stats = getSubjectProgress(subject)
+              const stats = getSubjectProgress(subject.sIdx, subject.subIdx, subject.topics)
               return (
                 <div key={idx} className={`breakdown-card priority-${subject.priority}`}>
                   <div className="breakdown-header">
@@ -172,26 +167,21 @@ function SyllabusChecklist({ branch, userKey }) {
         </div>
       </div>
 
+      {/* Accordion */}
       <div className="syllabus-accordion">
-        {syllabus.map((section, idx) => (
-          <div key={idx} className={`syllabus-section priority-${section.priority}`}>
-            <div 
-              className="section-header" 
-              onClick={() => setExpandedSection(expandedSection === section.name ? null : section.name)}
-            >
-              <h3>
-                {section.priority === 'high' ? '⭐ ' : ''}
-                {section.name}
-              </h3>
+        {syllabus.map((section, sIdx) => (
+          <div key={sIdx} className={`syllabus-section priority-${section.priority}`}>
+            <div className="section-header" onClick={() => setExpandedSection(expandedSection === section.name ? null : section.name)}>
+              <h3>{section.priority === 'high' ? '⭐ ' : ''}{section.name}</h3>
               <span className="expand-icon">{expandedSection === section.name ? '▼' : '▶'}</span>
             </div>
             
             {expandedSection === section.name && (
               <div className="section-content">
-                {section.subjects.map((subject, sIdx) => {
-                  const subStats = getSubjectProgress(subject)
+                {section.subjects.map((subject, subIdx) => {
+                  const subStats = getSubjectProgress(sIdx, subIdx, subject.topics)
                   return (
-                    <div key={sIdx} className="subject-card">
+                    <div key={subIdx} className="subject-card">
                       <div className="subject-header">
                         <h4>{subject.name}</h4>
                         <div className="subject-stats">
@@ -205,13 +195,13 @@ function SyllabusChecklist({ branch, userKey }) {
                       
                       <div className="topics-list">
                         {subject.topics.map((topic, tIdx) => {
-                          const isDone = isSubtopicCompleted(subject.name, 'General', topic)
+                          const isDone = !!progress[`${sIdx}_${subIdx}_${tIdx}`]
                           return (
                             <label key={tIdx} className={`topic-item ${isDone ? 'completed' : ''}`}>
                               <input 
                                 type="checkbox" 
                                 checked={isDone}
-                                onChange={() => handleToggleSubtopic(subject.name, 'General', topic)}
+                                onChange={() => handleToggleSubtopic(subject.name, 'General', topic, sIdx, subIdx, tIdx)}
                               />
                               <span className="custom-checkbox"></span>
                               <span className="topic-name">{topic}</span>

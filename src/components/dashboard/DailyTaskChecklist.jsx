@@ -1,80 +1,79 @@
 import { useState, useEffect } from 'react'
-import { defaultDailyTasks } from '../../data/platformData.js'
+import axios from 'axios'
 import './DailyTaskChecklist.css'
 
 function DailyTaskChecklist({ fullView }) {
   const [tasks, setTasks] = useState([])
-  const [newTask, setNewTask] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [allCompleted, setAllCompleted] = useState(false)
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const token = localStorage.getItem('token')
 
   useEffect(() => {
-    const saved = localStorage.getItem('dailyTasks')
-    if (saved) {
-      setTasks(JSON.parse(saved))
-    } else {
-      setTasks(defaultDailyTasks.map(t => ({ ...t, completed: false })))
-    }
+    if (user._id && token) fetchTasks()
   }, [])
 
-  const saveTasks = (newTasks) => {
-    setTasks(newTasks)
-    localStorage.setItem('dailyTasks', JSON.stringify(newTasks))
+  const fetchTasks = async () => {
+    try {
+      const res = await axios.get(`/api/student/daily-tasks/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setTasks(res.data.tasks || [])
+      setAllCompleted(res.data.allCompleted || false)
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const toggleTask = (id) => {
-    const updated = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
-    saveTasks(updated)
+  const toggleTask = async (index) => {
+    const updated = tasks.map((t, i) => i === index ? { ...t, completed: !t.completed } : t)
+    setTasks(updated)
+    try {
+      const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
+        date: new Date().toISOString(),
+        tasks: updated
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setTasks(res.data.tasks || updated)
+      setAllCompleted(res.data.allCompleted || false)
+    } catch (err) {
+      console.error('Failed to update tasks:', err)
+    }
   }
 
-  const addTask = (e) => {
-    e.preventDefault()
-    if (!newTask.trim()) return
-    const updated = [...tasks, { id: Date.now(), text: newTask, category: 'Custom', completed: false }]
-    saveTasks(updated)
-    setNewTask('')
-  }
-  
-  const deleteTask = (id) => {
-    const updated = tasks.filter(t => t.id !== id)
-    saveTasks(updated)
-  }
+  const done = tasks.filter(t => t.completed).length
+  const total = tasks.length
 
-  const completedCount = tasks.filter(t => t.completed).length
-  const totalCount = tasks.length
-  const progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100)
+  if (loading) return <div className="task-checklist"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading tasks...</p></div>
 
   return (
-    <div className={`daily-tasks-widget ${fullView ? 'full' : ''}`}>
-      <div className="tasks-header">
-        <h3>📝 Today's Tasks</h3>
-        <span className="tasks-progress-text">{completedCount}/{totalCount} Completed</span>
+    <div className="task-checklist">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 900 }}>✅ Daily Tasks</h3>
+        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: allCompleted ? '#10b981' : '#64748b' }}>
+          {done}/{total} Done
+        </span>
       </div>
-      
-      <div className="tasks-progress">
-        <div className="tasks-progress-fill" style={{ width: `${progress}%` }}></div>
+      <div className="task-progress-bar">
+        <div className="task-progress-fill" style={{ width: total > 0 ? `${(done/total)*100}%` : '0%' }} />
       </div>
-
-      <div className="tasks-list">
-        {tasks.map(task => (
-          <div key={task.id} className={`task-item ${task.completed ? 'completed' : ''}`}>
-            <label className="task-label">
-              <input type="checkbox" checked={task.completed} onChange={() => toggleTask(task.id)} />
-              <span className="task-custom-check"></span>
-              <span className="task-text">{task.text}</span>
-            </label>
-            {fullView && <button className="task-delete" onClick={() => deleteTask(task.id)}>×</button>}
-          </div>
+      <ul className="task-list">
+        {tasks.map((task, i) => (
+          <li key={task._id || i}
+            className={`task-item ${task.completed ? 'completed' : ''}`}
+            onClick={() => toggleTask(i)}
+          >
+            <span className="task-checkbox">{task.completed ? '✅' : '⬜'}</span>
+            <span className="task-name">{task.name}</span>
+          </li>
         ))}
-      </div>
-
-      <form className="task-add-form" onSubmit={addTask}>
-        <input 
-          type="text" 
-          value={newTask} 
-          onChange={(e) => setNewTask(e.target.value)} 
-          placeholder="Add a new task..." 
-        />
-        <button type="submit">+</button>
-      </form>
+      </ul>
+      {allCompleted && (
+        <p style={{ textAlign: 'center', color: '#10b981', fontWeight: 800, fontSize: '0.85rem', marginTop: '8px' }}>
+          🎉 All tasks completed! Your streak grows!
+        </p>
+      )}
     </div>
   )
 }

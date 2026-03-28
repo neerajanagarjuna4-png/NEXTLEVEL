@@ -1,302 +1,163 @@
 import { useState, useEffect } from 'react'
-import { getSyllabus } from '../../data/syllabus.js'
+import axios from 'axios'
 import './DailyStudyReport.css'
 
-const MOODS = [
-  { value: 'great', emoji: '😊', label: 'Great' },
-  { value: 'good', emoji: '😌', label: 'Good' },
-  { value: 'neutral', emoji: '😐', label: 'Neutral' },
-  { value: 'tired', emoji: '😴', label: 'Tired' },
-  { value: 'stressed', emoji: '😰', label: 'Stressed' },
-]
-
-function DailyStudyReport({ userKey }) {
+function DailyStudyReport() {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const branch = user.branch || 'ECE'
-  const userId = userKey || user.id || user.email || 'default'
+  const token = localStorage.getItem('token')
 
-  const syllabus = getSyllabus(branch)
-  const allSubjects = syllabus.flatMap(section => section.subjects.map(s => s.name))
-
-  const todayStr = new Date().toISOString().split('T')[0]
-
-  const [reports, setReports] = useState([])
-  const [editingId, setEditingId] = useState(null)
-  const [viewMode, setViewMode] = useState('form') // 'form' | 'history'
-
-  // Form state
-  const [date, setDate] = useState(todayStr)
-  const [subjects, setSubjects] = useState([])
-  const [topics, setTopics] = useState('')
-  const [studyHours, setStudyHours] = useState(0)
-  const [pyqsSolved, setPyqsSolved] = useState(0)
-  const [mockTestScore, setMockTestScore] = useState('')
-  const [accuracy, setAccuracy] = useState('')
-  const [difficulties, setDifficulties] = useState('')
-  const [tomorrowPlan, setTomorrowPlan] = useState('')
-  const [mood, setMood] = useState('')
-  const [success, setSuccess] = useState('')
-  const [error, setError] = useState('')
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    subject: '',
+    topic: '',
+    studyHours: '',
+    pyqsSolved: '',
+    mockTestScore: '',
+    accuracy: '',
+    difficulties: ''
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState('')
+  const [recentReports, setRecentReports] = useState([])
+  const [loadingReports, setLoadingReports] = useState(true)
 
   useEffect(() => {
-    const saved = localStorage.getItem(`studyReports_${userId}`)
-    if (saved) setReports(JSON.parse(saved))
-  }, [userId])
+    if (user._id && token) fetchRecentReports()
+  }, [])
 
-  const saveReports = (updated) => {
-    setReports(updated)
-    localStorage.setItem(`studyReports_${userId}`, JSON.stringify(updated))
+  const fetchRecentReports = async () => {
+    try {
+      const res = await axios.get(`/api/student/study-reports/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setRecentReports(res.data.reports || [])
+    } catch (err) {
+      console.error('Failed to fetch reports:', err)
+    } finally {
+      setLoadingReports(false)
+    }
   }
 
-  const toggleSubject = (subj) => {
-    setSubjects(prev =>
-      prev.includes(subj) ? prev.filter(s => s !== subj) : [...prev, subj]
-    )
-  }
-
-  const resetForm = () => {
-    setDate(todayStr)
-    setSubjects([])
-    setTopics('')
-    setStudyHours(0)
-    setPyqsSolved(0)
-    setMockTestScore('')
-    setAccuracy('')
-    setDifficulties('')
-    setTomorrowPlan('')
-    setMood('')
-    setEditingId(null)
-    setError('')
-    setSuccess('')
-  }
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!date || !mood || studyHours <= 0) {
-      setError('Please fill date, study hours, and mood.')
-      return
-    }
-    if (new Date(date) > new Date()) {
-      setError('Cannot submit a report for a future date.')
+    if (!formData.subject || !formData.topic || !formData.studyHours) {
+      setMessage('❌ Please fill in subject, topic, and study hours.')
       return
     }
 
-    const report = {
-      id: editingId || Date.now().toString(),
-      date,
-      subjects,
-      topics,
-      studyHours: Number(studyHours),
-      pyqsSolved: Number(pyqsSolved),
-      mockTestScore: mockTestScore ? Number(mockTestScore) : null,
-      accuracy: accuracy ? Number(accuracy) : null,
-      difficulties,
-      tomorrowPlan,
-      mood,
-      createdAt: new Date().toISOString(),
+    setSubmitting(true)
+    setMessage('')
+
+    try {
+      await axios.post('/api/student/study-report', {
+        userId: user._id,
+        date: formData.date,
+        subject: formData.subject,
+        topic: formData.topic,
+        studyHours: Number(formData.studyHours),
+        pyqsSolved: Number(formData.pyqsSolved) || 0,
+        mockTestScore: Number(formData.mockTestScore) || 0,
+        accuracy: Number(formData.accuracy) || 0,
+        difficulties: formData.difficulties
+      }, { headers: { Authorization: `Bearer ${token}` } })
+
+      setMessage('✅ Report submitted successfully! Your progress has been updated.')
+      setFormData({ date: new Date().toISOString().split('T')[0], subject: '', topic: '', studyHours: '', pyqsSolved: '', mockTestScore: '', accuracy: '', difficulties: '' })
+      fetchRecentReports()
+    } catch (err) {
+      setMessage(`❌ ${err.response?.data?.message || 'Failed to submit report.'}`)
+    } finally {
+      setSubmitting(false)
     }
-
-    let updated
-    if (editingId) {
-      updated = reports.map(r => r.id === editingId ? report : r)
-    } else {
-      // Check if report for this date already exists
-      const existing = reports.find(r => r.date === date)
-      if (existing) {
-        setError('A report for this date already exists. Edit it from History.')
-        return
-      }
-      updated = [...reports, report]
-    }
-
-    saveReports(updated)
-
-    // Update user points (+60 per report) and study hours
-    const userObj = JSON.parse(localStorage.getItem('user') || '{}')
-    if (!editingId) {
-      userObj.points = (userObj.points || 0) + 60
-      userObj.totalStudyHours = (userObj.totalStudyHours || 0) + Number(studyHours)
-      userObj.totalPYQs = (userObj.totalPYQs || 0) + Number(pyqsSolved)
-    }
-    localStorage.setItem('user', JSON.stringify(userObj))
-
-    setSuccess(editingId ? 'Report updated successfully!' : 'Report submitted! +60 points earned! 🎉')
-    resetForm()
-    setTimeout(() => setSuccess(''), 3000)
   }
-
-  const handleEdit = (report) => {
-    setEditingId(report.id)
-    setDate(report.date)
-    setSubjects(report.subjects || [])
-    setTopics(report.topics || '')
-    setStudyHours(report.studyHours)
-    setPyqsSolved(report.pyqsSolved || 0)
-    setMockTestScore(report.mockTestScore || '')
-    setAccuracy(report.accuracy || '')
-    setDifficulties(report.difficulties || '')
-    setTomorrowPlan(report.tomorrowPlan || '')
-    setMood(report.mood || '')
-    setViewMode('form')
-  }
-
-  const handleDelete = (id) => {
-    if (!confirm('Delete this report?')) return
-    const updated = reports.filter(r => r.id !== id)
-    saveReports(updated)
-  }
-
-  const sortedReports = [...reports].sort((a, b) => new Date(b.date) - new Date(a.date))
 
   return (
-    <div className="study-report-widget">
-      <div className="report-tabs">
-        <button
-          className={`report-tab ${viewMode === 'form' ? 'active' : ''}`}
-          onClick={() => { setViewMode('form'); resetForm() }}
-        >
-          📝 {editingId ? 'Edit Report' : 'New Report'}
-        </button>
-        <button
-          className={`report-tab ${viewMode === 'history' ? 'active' : ''}`}
-          onClick={() => setViewMode('history')}
-        >
-          📋 History ({reports.length})
-        </button>
-      </div>
+    <div className="study-report">
+      <h3 style={{ fontSize: '1.1rem', fontWeight: 900, marginBottom: '16px' }}>📋 Daily Study Report</h3>
 
-      {success && <div className="report-success">{success}</div>}
-      {error && <div className="report-error">{error}</div>}
-
-      {viewMode === 'form' && (
-        <form className="report-form" onSubmit={handleSubmit}>
-          {/* Date */}
-          <div className="form-row">
-            <label>📅 Date</label>
-            <input type="date" value={date} max={todayStr} onChange={e => setDate(e.target.value)} />
-          </div>
-
-          {/* Subjects multi-select */}
-          <div className="form-row">
-            <label>📚 Subjects Studied</label>
-            <div className="subject-chips">
-              {allSubjects.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`subject-chip ${subjects.includes(s) ? 'selected' : ''}`}
-                  onClick={() => toggleSubject(s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Topics covered */}
-          <div className="form-row">
-            <label>📖 Topics Covered</label>
-            <input
-              type="text"
-              placeholder="e.g., Eigenvalues, Superposition Theorem"
-              value={topics}
-              onChange={e => setTopics(e.target.value)}
-            />
-          </div>
-
-          {/* Number fields row */}
-          <div className="form-numbers">
-            <div className="form-row">
-              <label>⏱️ Study Hours</label>
-              <input type="number" min="0" max="24" step="0.5" value={studyHours} onChange={e => setStudyHours(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <label>📝 PYQs Solved</label>
-              <input type="number" min="0" value={pyqsSolved} onChange={e => setPyqsSolved(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <label>📊 Mock Test Score</label>
-              <input type="number" min="0" max="100" placeholder="Optional" value={mockTestScore} onChange={e => setMockTestScore(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <label>🎯 Accuracy %</label>
-              <input type="number" min="0" max="100" placeholder="Optional" value={accuracy} onChange={e => setAccuracy(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Difficulties */}
-          <div className="form-row">
-            <label>😕 Difficulties Faced</label>
-            <textarea rows="2" placeholder="Any challenges or concepts you struggled with..." value={difficulties} onChange={e => setDifficulties(e.target.value)} />
-          </div>
-
-          {/* Plan for tomorrow */}
-          <div className="form-row">
-            <label>📋 Plan for Tomorrow</label>
-            <textarea rows="2" placeholder="What do you plan to study tomorrow?" value={tomorrowPlan} onChange={e => setTomorrowPlan(e.target.value)} />
-          </div>
-
-          {/* Mood */}
-          <div className="form-row">
-            <label>🧠 How are you feeling?</label>
-            <div className="mood-picker">
-              {MOODS.map(m => (
-                <button
-                  key={m.value}
-                  type="button"
-                  className={`mood-btn ${mood === m.value ? 'selected' : ''}`}
-                  onClick={() => setMood(m.value)}
-                >
-                  <span className="mood-emoji">{m.emoji}</span>
-                  <span className="mood-label">{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button type="submit" className="report-submit-btn">
-            {editingId ? '✏️ Update Report' : '📤 Submit Report'}
-          </button>
-        </form>
-      )}
-
-      {viewMode === 'history' && (
-        <div className="report-history">
-          {sortedReports.length === 0 && (
-            <div className="report-empty">
-              <p>No reports submitted yet. Start by filling out today's study report!</p>
-            </div>
-          )}
-          {sortedReports.map(r => (
-            <div key={r.id} className="report-card">
-              <div className="report-card-header">
-                <span className="report-date">{new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                <div className="report-actions">
-                  <button className="edit-btn" onClick={() => handleEdit(r)}>✏️</button>
-                  <button className="delete-btn" onClick={() => handleDelete(r.id)}>🗑️</button>
-                </div>
-              </div>
-              <div className="report-card-body">
-                <div className="report-stats-row">
-                  <span>⏱️ {r.studyHours}h</span>
-                  <span>📝 {r.pyqsSolved} PYQs</span>
-                  {r.mockTestScore !== null && <span>📊 {r.mockTestScore}/100</span>}
-                  {r.accuracy !== null && <span>🎯 {r.accuracy}%</span>}
-                  <span>{MOODS.find(m => m.value === r.mood)?.emoji || '😐'}</span>
-                </div>
-                {r.subjects?.length > 0 && (
-                  <div className="report-subjects">
-                    {r.subjects.map(s => <span key={s} className="report-subject-tag">{s}</span>)}
-                  </div>
-                )}
-                {r.topics && <p className="report-topics">📖 {r.topics}</p>}
-                {r.difficulties && <p className="report-diff">😕 {r.difficulties}</p>}
-                {r.tomorrowPlan && <p className="report-plan">📋 {r.tomorrowPlan}</p>}
-              </div>
-            </div>
-          ))}
+      {message && (
+        <div className={`report-message ${message.startsWith('✅') ? 'success' : 'error'}`}>
+          {message}
         </div>
       )}
+
+      <form onSubmit={handleSubmit} className="report-form">
+        <div className="form-row">
+          <div className="form-group">
+            <label>📅 Date</label>
+            <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} required />
+          </div>
+          <div className="form-group">
+            <label>📚 Subject</label>
+            <input type="text" value={formData.subject} onChange={e => setFormData({ ...formData, subject: e.target.value })} placeholder="e.g. Networks" required />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>📝 Topic</label>
+            <input type="text" value={formData.topic} onChange={e => setFormData({ ...formData, topic: e.target.value })} placeholder="e.g. Thevenin's Theorem" required />
+          </div>
+          <div className="form-group">
+            <label>⏱️ Study Hours</label>
+            <input type="number" step="0.5" min="0" max="24" value={formData.studyHours} onChange={e => setFormData({ ...formData, studyHours: e.target.value })} placeholder="e.g. 6" required />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>📊 PYQs Solved</label>
+            <input type="number" min="0" value={formData.pyqsSolved} onChange={e => setFormData({ ...formData, pyqsSolved: e.target.value })} placeholder="e.g. 25" />
+          </div>
+          <div className="form-group">
+            <label>🎯 Mock Test Score (%)</label>
+            <input type="number" min="0" max="100" value={formData.mockTestScore} onChange={e => setFormData({ ...formData, mockTestScore: e.target.value })} placeholder="e.g. 72" />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>📈 Accuracy (%)</label>
+            <input type="number" min="0" max="100" value={formData.accuracy} onChange={e => setFormData({ ...formData, accuracy: e.target.value })} placeholder="e.g. 85" />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>💡 Difficulties Faced</label>
+          <textarea value={formData.difficulties} onChange={e => setFormData({ ...formData, difficulties: e.target.value })} placeholder="Any challenges or topics you struggled with..." rows="3" />
+        </div>
+
+        <button type="submit" className="submit-btn" disabled={submitting}>
+          {submitting ? '⏳ Submitting...' : '🚀 Submit Report'}
+        </button>
+      </form>
+
+      {/* Recent Reports */}
+      <div style={{ marginTop: '24px' }}>
+        <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '12px' }}>📑 Recent Reports</h4>
+        {loadingReports ? (
+          <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading...</p>
+        ) : recentReports.length === 0 ? (
+          <p style={{ color: '#94a3b8', textAlign: 'center', fontSize: '0.85rem' }}>No reports yet. Submit your first study report above!</p>
+        ) : (
+          <div className="reports-list">
+            {recentReports.slice(0, 7).map((r, i) => (
+              <div key={r._id || i} className="report-card">
+                <div className="report-date">{new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div className="report-details">
+                  <span><strong>{r.subject}</strong> – {r.topic}</span>
+                  <div className="report-stats">
+                    <span>⏱️ {r.studyHours}h</span>
+                    <span>📊 {r.pyqsSolved} PYQs</span>
+                    {r.mockTestScore > 0 && <span>🎯 {r.mockTestScore}%</span>}
+                    {r.accuracy > 0 && <span>📈 {r.accuracy}% acc</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

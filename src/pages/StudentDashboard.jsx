@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import { motivationQuotes } from '../data/platformData.js'
 import { getSyllabus, countAllTopics } from '../data/syllabus.js'
 import GATECountdown from '../components/dashboard/GATECountdown.jsx'
@@ -22,16 +23,39 @@ function StudentDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [notifications, setNotifications] = useState([])
+  const [liveStats, setLiveStats] = useState({ studyHours: 0, tasksDone: 0, tasksTotal: 0, syllabusPercent: 0, streak: 0 })
   const navigate = useNavigate()
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const token = localStorage.getItem('token')
   const firstName = user.name ? user.name.split(' ')[0] : 'Student'
   const userKey = user.email ? user.email.replace(/[.@]/g, '_') : 'guest'
 
   useEffect(() => {
     if (!user.email) navigate('/login')
     if (user.status === 'pending') navigate('/pending-approval')
+    if (user._id && token) fetchLiveStats()
   }, [user.email, user.status, navigate])
+
+  const fetchLiveStats = async () => {
+    try {
+      const [progressRes, tasksRes, streakRes, syllabusRes] = await Promise.all([
+        axios.get(`/api/student/progress/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
+        axios.get(`/api/student/daily-tasks/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
+        axios.get(`/api/student/streak/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} })),
+        axios.get(`/api/student/syllabus-progress/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
+      ])
+      setLiveStats({
+        studyHours: progressRes.data?.progress?.today?.studyHours || 0,
+        tasksDone: tasksRes.data?.completedCount || 0,
+        tasksTotal: tasksRes.data?.totalCount || 0,
+        syllabusPercent: syllabusRes.data?.percentage || 0,
+        streak: streakRes.data?.streak || 0
+      })
+    } catch (err) {
+      console.error('Failed to fetch live stats:', err)
+    }
+  }
 
   const getGreeting = () => {
     const h = new Date().getHours()
@@ -135,23 +159,29 @@ function StudentDashboard() {
               <div className="stats-grid animate-fade-in">
                 <div className="stat-card blue">
                   <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Study Hours</span>
-                  <span className="stat-value gradient-text">6.5h</span>
-                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ 12% increase</p>
+                  <span className="stat-value gradient-text">{liveStats.studyHours.toFixed(1)}h</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>📅 Today</p>
                 </div>
                 <div className="stat-card purple">
                   <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Tasks Done</span>
-                  <span className="stat-value" style={{ color: 'var(--color-secondary)' }}>8/12</span>
-                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ Moving fast</p>
+                  <span className="stat-value" style={{ color: 'var(--color-secondary)' }}>{liveStats.tasksDone}/{liveStats.tasksTotal}</span>
+                  <p style={{ fontSize: '11px', color: liveStats.tasksDone === liveStats.tasksTotal && liveStats.tasksTotal > 0 ? 'var(--color-success)' : '#64748b', fontWeight: '700', marginTop: '4px' }}>
+                    {liveStats.tasksDone === liveStats.tasksTotal && liveStats.tasksTotal > 0 ? '✅ All done!' : '⏳ In progress'}
+                  </p>
                 </div>
                 <div className="stat-card green">
                   <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Syllabus</span>
-                  <span className="stat-value" style={{ color: 'var(--color-success)' }}>42%</span>
-                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>↑ On track</p>
+                  <span className="stat-value" style={{ color: 'var(--color-success)' }}>{liveStats.syllabusPercent}%</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700', marginTop: '4px' }}>
+                    {liveStats.syllabusPercent >= 50 ? '🚀 Great progress' : '📚 Keep going'}
+                  </p>
                 </div>
                 <div className="stat-card warm">
                   <span className="stat-label" style={{ fontSize: '10px', fontWeight: '800', color: 'var(--color-text-light)' }}>Streak</span>
-                  <span className="stat-value" style={{ color: 'var(--color-warning)' }}>15</span>
-                  <p style={{ fontSize: '11px', color: 'var(--color-warning)', fontWeight: '700', marginTop: '4px' }}>🔥 Master streak</p>
+                  <span className="stat-value" style={{ color: 'var(--color-warning)' }}>{liveStats.streak}</span>
+                  <p style={{ fontSize: '11px', color: 'var(--color-warning)', fontWeight: '700', marginTop: '4px' }}>
+                    {liveStats.streak >= 7 ? '🔥 On fire!' : liveStats.streak > 0 ? '💪 Building up' : '🚀 Start today'}
+                  </p>
                 </div>
               </div>
 

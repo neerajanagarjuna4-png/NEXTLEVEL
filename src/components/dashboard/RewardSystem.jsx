@@ -1,108 +1,114 @@
 import { useState, useEffect } from 'react'
+import axios from 'axios'
 import './RewardSystem.css'
 
-function RewardSystem({ userKey }) {
+function RewardSystem() {
+  const [rewards, setRewards] = useState({})
+  const [loading, setLoading] = useState(true)
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const currentUserId = userKey || user.id || user.email || 'default'
+  const token = localStorage.getItem('token')
 
-  // Calculate streak from study reports
-  const getStreakAndBadges = () => {
-    const saved = localStorage.getItem(`studyReports_${currentUserId}`)
-    if (!saved) return { streak: 0, badges: [], points: user.points || 0 }
-    const reports = JSON.parse(saved)
-    const points = user.points || reports.length * 60
+  useEffect(() => {
+    if (user._id && token) fetchRewards()
+  }, [])
 
-    // Get unique dates sorted descending
-    const dates = [...new Set(reports.map(r => r.date))].sort((a, b) => new Date(b) - new Date(a))
-
-    let streak = 0
-    if (dates.length > 0) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const firstDate = new Date(dates[0])
-      firstDate.setHours(0, 0, 0, 0)
-
-      // Check if most recent report is today or yesterday
-      const diffDays = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24))
-      if (diffDays <= 1) {
-        streak = 1
-        for (let i = 1; i < dates.length; i++) {
-          const prev = new Date(dates[i - 1])
-          const curr = new Date(dates[i])
-          const gap = Math.floor((prev - curr) / (1000 * 60 * 60 * 24))
-          if (gap === 1) {
-            streak++
-          } else {
-            break
-          }
-        }
-      }
+  const fetchRewards = async () => {
+    try {
+      const res = await axios.get(`/api/student/rewards/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setRewards(res.data)
+    } catch (err) {
+      console.error('Failed to fetch rewards:', err)
+    } finally {
+      setLoading(false)
     }
-
-    // Calculate badges
-    const badgeDefs = [
-      { name: "Consistency Builder", icon: "🌱", desc: "7-day study streak", requirement: 7 },
-      { name: "Dedicated Aspirant", icon: "⚡", desc: "14-day study streak", requirement: 14 },
-      { name: "Discipline Master", icon: "👑", desc: "30-day study streak", requirement: 30 },
-    ]
-
-    const badges = badgeDefs.map(b => ({
-      ...b,
-      earned: streak >= b.requirement,
-      progress: Math.min(100, Math.round((streak / b.requirement) * 100)),
-    }))
-
-    return { streak, badges, points }
   }
 
-  const { streak, badges, points } = getStreakAndBadges()
-  const level = Math.floor(points / 500) + 1
+  const { streak = 0, badges = [], consistencyScore = 0, nextMilestone, daysToNextMilestone } = rewards
+
+  if (loading) return <div className="reward-system"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</p></div>
 
   return (
-    <div className="reward-widget glass animate-fade-in">
-      <div className="reward-header">
-        <h3>🏆 Achievements</h3>
-        <span className="points-badge">{points.toLocaleString()} PTS</span>
-      </div>
+    <div className="reward-system">
+      <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '16px' }}>🏆 Rewards & Achievements</h3>
 
-      {/* Streak & Level */}
-      <div className="streak-level-row">
-        <div className="streak-card">
-          <span className="streak-fire">🔥</span>
-          <span className="streak-num">{streak}</span>
-          <span className="streak-label">Day Streak</span>
-        </div>
-        <div className="level-card">
-          <span className="level-star">⭐</span>
-          <span className="level-num">Lv. {level}</span>
-          <span className="level-label">{points} points</span>
-        </div>
-      </div>
-
-      {/* Badges */}
-      <div className="badges-list">
-        {badges.map((badge, idx) => (
-          <div key={idx} className={`badge-card ${badge.earned ? 'earned' : 'locked'}`}>
-            <div className="badge-icon-wrap">
-              <span className="badge-icon">{badge.icon}</span>
-              {!badge.earned && <span className="badge-lock">🔒</span>}
-            </div>
-            <div className="badge-info">
-              <h4 className="badge-name">{badge.name}</h4>
-              <p className="badge-desc">{badge.desc}</p>
-              {badge.earned ? (
-                <span className="badge-date">✅ Unlocked!</span>
-              ) : (
-                <div className="badge-progress-wrap">
-                  <div className="badge-progress-bar">
-                    <div className="badge-progress-fill" style={{ width: `${badge.progress}%` }} />
-                  </div>
-                  <span className="badge-progress-text">{streak}/{badge.requirement} days</span>
-                </div>
-              )}
-            </div>
+      {/* Streak Display */}
+      <div className="streak-display">
+        <div className="streak-flame">🔥</div>
+        <div className="streak-info">
+          <div className="streak-count">{streak} Day Streak</div>
+          <div className="streak-subtext">
+            {nextMilestone 
+              ? `${daysToNextMilestone} days to next badge (${nextMilestone}-day milestone)`
+              : 'All milestones achieved! 🎉'
+            }
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Consistency Score */}
+      <div className="consistency-card" style={{ marginTop: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>📊 Consistency Score</span>
+          <span style={{ fontSize: '1.1rem', fontWeight: 900, color: consistencyScore >= 70 ? '#10b981' : consistencyScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+            {consistencyScore}%
+          </span>
+        </div>
+        <div className="hours-bar" style={{ marginTop: '6px' }}>
+          <div className="hours-fill" style={{ 
+            width: `${consistencyScore}%`,
+            background: consistencyScore >= 70 ? '#10b981' : consistencyScore >= 40 ? '#f59e0b' : '#ef4444'
+          }} />
+        </div>
+        <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
+          Based on last 7 days' target adherence
+        </p>
+      </div>
+
+      {/* Earned Badges */}
+      <div style={{ marginTop: '16px' }}>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px' }}>🎖️ Earned Badges</h4>
+        {badges.length === 0 ? (
+          <p style={{ color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>
+            Keep submitting reports and completing tasks to earn badges!
+          </p>
+        ) : (
+          <div className="badge-grid">
+            {badges.map((badge, i) => (
+              <div key={i} className="badge-card earned">
+                <span className="badge-icon">{badge.name.split(' ')[0]}</span>
+                <span className="badge-name">{badge.name.split(' ').slice(1).join(' ')}</span>
+                <span className="badge-date">
+                  {new Date(badge.earnedDate).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Milestone tracker */}
+      <div style={{ marginTop: '12px' }}>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px' }}>🎯 Milestones</h4>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[
+            { days: 7, label: '7-Day Warrior' },
+            { days: 14, label: '14-Day Champion' },
+            { days: 30, label: '30-Day Legend' },
+            { days: 60, label: '60-Day Diamond' },
+            { days: 100, label: '100-Day Master' }
+          ].map(m => (
+            <div key={m.days} style={{
+              padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700,
+              background: streak >= m.days ? '#dcfce7' : '#f1f5f9',
+              color: streak >= m.days ? '#16a34a' : '#94a3b8',
+              border: `1px solid ${streak >= m.days ? '#86efac' : '#e2e8f0'}`
+            }}>
+              {streak >= m.days ? '✅' : '⬜'} {m.label}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
