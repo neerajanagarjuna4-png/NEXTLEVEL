@@ -67,31 +67,45 @@ app.use((req, res, next) => {
 });
 
 // ─── MongoDB Connection (Cached for Serverless) ─────────────
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/nextlevel';
+const MONGODB_URI = process.env.MONGODB_URI;
 const PORT = process.env.PORT || 5000;
-let isConnected = false;
+let cachedDb = null;
+let lastDbError = null;
 
 const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState === 1) {
-    isConnected = true;
-    return;
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    return cachedDb;
   }
+  
+  if (!MONGODB_URI) {
+    lastDbError = "MONGODB_URI environment variable is MISSING on Vercel.";
+    console.error(lastDbError);
+    return null;
+  }
+
   try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
+    console.log('Attempting MongoDB connection...');
+    const conn = await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 4000, // Fail fast (4s)
       socketTimeoutMS: 10000,
+      family: 4 // Force IPv4
     });
-    isConnected = true;
+    cachedDb = conn;
+    lastDbError = null;
     console.log('✅ Connected to MongoDB');
+    return conn;
   } catch (err) {
-    console.error('❌ MongoDB connection failed:', err.message);
-    isConnected = false;
+    lastDbError = err.message || JSON.stringify(err);
+    console.error('❌ MongoDB connection failed:', lastDbError);
+    return null;
   }
 };
 
 // Ensure DB is connected before any API route
 app.use('/api', async (req, res, next) => {
-  await connectDB();
+  // We use a Promise.race to guarantee the middleware never hangs the process
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000));
+  await Promise.race([connectDB(), timeoutPromise]);
   next();
 });
 
@@ -101,9 +115,12 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    hasMongodbUri: !!process.env.MONGODB_URI,
+    lastDbError: lastDbError,
     uptime: process.uptime()
   });
 });
+
 
 // ─── API Routes ─────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
