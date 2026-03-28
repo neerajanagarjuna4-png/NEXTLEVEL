@@ -2,22 +2,38 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import './RewardSystem.css'
 
-function RewardSystem() {
-  const [rewards, setRewards] = useState({})
-  const [loading, setLoading] = useState(true)
+function RewardSystem({ userKey }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const currentUserId = userKey || user.id || user.email || 'default'
+
   const token = localStorage.getItem('token')
+  const [data, setData] = useState({ streak: 0, badges: [], points: user.points || 0 })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user._id && token) fetchRewards()
+    if (currentUserId !== 'default' && token) fetchRewards()
   }, [])
 
   const fetchRewards = async () => {
     try {
-      const res = await axios.get(`/api/student/rewards/${user._id}`, {
+      const res = await axios.get(`/api/student/rewards/${currentUserId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setRewards(res.data)
+      const apiStreak = res.data.streak || 0
+      
+      const badgeDefs = [
+        { name: "Consistency Builder", icon: "🌱", desc: "7-day study streak", requirement: 7 },
+        { name: "Dedicated Aspirant", icon: "⚡", desc: "14-day study streak", requirement: 14 },
+        { name: "Discipline Master", icon: "👑", desc: "30-day study streak", requirement: 30 },
+      ]
+
+      const formattedBadges = badgeDefs.map(b => ({
+        ...b,
+        earned: apiStreak >= b.requirement,
+        progress: Math.min(100, Math.round((apiStreak / b.requirement) * 100)),
+      }))
+
+      setData({ streak: apiStreak, badges: formattedBadges, points: user.points || 0 })
     } catch (err) {
       console.error('Failed to fetch rewards:', err)
     } finally {
@@ -25,90 +41,56 @@ function RewardSystem() {
     }
   }
 
-  const { streak = 0, badges = [], consistencyScore = 0, nextMilestone, daysToNextMilestone } = rewards
+  const { streak, badges, points } = data
+  const level = Math.floor(points / 500) + 1
 
-  if (loading) return <div className="reward-system"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</p></div>
+  if (loading) return <div className="reward-widget glass"><p style={{ textAlign: 'center', padding: '2rem' }}>Loading rewards...</p></div>
 
   return (
-    <div className="reward-system">
-      <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '16px' }}>🏆 Rewards & Achievements</h3>
+    <div className="reward-widget glass animate-fade-in">
+      <div className="reward-header">
+        <h3>🏆 Achievements</h3>
+        <span className="points-badge">{points.toLocaleString()} PTS</span>
+      </div>
 
-      {/* Streak Display */}
-      <div className="streak-display">
-        <div className="streak-flame">🔥</div>
-        <div className="streak-info">
-          <div className="streak-count">{streak} Day Streak</div>
-          <div className="streak-subtext">
-            {nextMilestone 
-              ? `${daysToNextMilestone} days to next badge (${nextMilestone}-day milestone)`
-              : 'All milestones achieved! 🎉'
-            }
-          </div>
+      {/* Streak & Level */}
+      <div className="streak-level-row">
+        <div className="streak-card">
+          <span className="streak-fire">🔥</span>
+          <span className="streak-num">{streak}</span>
+          <span className="streak-label">Day Streak</span>
+        </div>
+        <div className="level-card">
+          <span className="level-star">⭐</span>
+          <span className="level-num">Lv. {level}</span>
+          <span className="level-label">{points} points</span>
         </div>
       </div>
 
-      {/* Consistency Score */}
-      <div className="consistency-card" style={{ marginTop: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>📊 Consistency Score</span>
-          <span style={{ fontSize: '1.1rem', fontWeight: 900, color: consistencyScore >= 70 ? '#10b981' : consistencyScore >= 40 ? '#f59e0b' : '#ef4444' }}>
-            {consistencyScore}%
-          </span>
-        </div>
-        <div className="hours-bar" style={{ marginTop: '6px' }}>
-          <div className="hours-fill" style={{ 
-            width: `${consistencyScore}%`,
-            background: consistencyScore >= 70 ? '#10b981' : consistencyScore >= 40 ? '#f59e0b' : '#ef4444'
-          }} />
-        </div>
-        <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
-          Based on last 7 days' target adherence
-        </p>
-      </div>
-
-      {/* Earned Badges */}
-      <div style={{ marginTop: '16px' }}>
-        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px' }}>🎖️ Earned Badges</h4>
-        {badges.length === 0 ? (
-          <p style={{ color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>
-            Keep submitting reports and completing tasks to earn badges!
-          </p>
-        ) : (
-          <div className="badge-grid">
-            {badges.map((badge, i) => (
-              <div key={i} className="badge-card earned">
-                <span className="badge-icon">{badge.name.split(' ')[0]}</span>
-                <span className="badge-name">{badge.name.split(' ').slice(1).join(' ')}</span>
-                <span className="badge-date">
-                  {new Date(badge.earnedDate).toLocaleDateString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Milestone tracker */}
-      <div style={{ marginTop: '12px' }}>
-        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px' }}>🎯 Milestones</h4>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {[
-            { days: 7, label: '7-Day Warrior' },
-            { days: 14, label: '14-Day Champion' },
-            { days: 30, label: '30-Day Legend' },
-            { days: 60, label: '60-Day Diamond' },
-            { days: 100, label: '100-Day Master' }
-          ].map(m => (
-            <div key={m.days} style={{
-              padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700,
-              background: streak >= m.days ? '#dcfce7' : '#f1f5f9',
-              color: streak >= m.days ? '#16a34a' : '#94a3b8',
-              border: `1px solid ${streak >= m.days ? '#86efac' : '#e2e8f0'}`
-            }}>
-              {streak >= m.days ? '✅' : '⬜'} {m.label}
+      {/* Badges */}
+      <div className="badges-list">
+        {badges.map((badge, idx) => (
+          <div key={idx} className={`badge-card ${badge.earned ? 'earned' : 'locked'}`}>
+            <div className="badge-icon-wrap">
+              <span className="badge-icon">{badge.icon}</span>
+              {!badge.earned && <span className="badge-lock">🔒</span>}
             </div>
-          ))}
-        </div>
+            <div className="badge-info">
+              <h4 className="badge-name">{badge.name}</h4>
+              <p className="badge-desc">{badge.desc}</p>
+              {badge.earned ? (
+                <span className="badge-date">✅ Unlocked!</span>
+              ) : (
+                <div className="badge-progress-wrap">
+                  <div className="badge-progress-bar">
+                    <div className="badge-progress-fill" style={{ width: `${badge.progress}%` }} />
+                  </div>
+                  <span className="badge-progress-text">{streak}/{badge.requirement} days</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

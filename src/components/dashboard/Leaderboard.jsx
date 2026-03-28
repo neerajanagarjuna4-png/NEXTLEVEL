@@ -3,17 +3,19 @@ import axios from 'axios'
 import './Leaderboard.css'
 
 function Leaderboard({ fullView }) {
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+  const [tab, setTab] = useState('all')
+
   const [leaderboard, setLeaderboard] = useState([])
   const [loading, setLoading] = useState(true)
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')
 
   useEffect(() => {
-    if (token) fetchLeaderboard()
+    fetchLeaderboard()
   }, [])
 
   const fetchLeaderboard = async () => {
     try {
+      const token = localStorage.getItem('token')
       const res = await axios.get('/api/leaderboard', {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -25,47 +27,67 @@ function Leaderboard({ fullView }) {
     }
   }
 
-  const getRankEmoji = (rank) => {
-    if (rank === 1) return '🥇'
-    if (rank === 2) return '🥈'
-    if (rank === 3) return '🥉'
-    return `#${rank}`
-  }
+  // Filter by branch if tab is set
+  const filtered = tab === 'all' ? leaderboard : leaderboard.filter(s => s.branch === tab)
 
-  const display = fullView ? leaderboard : leaderboard.slice(0, 5)
+  // Re-assign ranks dynamically based on the current filter
+  const ranked = filtered.map((s, i) => ({ ...s, rank: i + 1 }))
 
-  if (loading) return <div className="leaderboard"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</p></div>
+  const displayList = fullView ? ranked : ranked.slice(0, 5)
+
+  if (loading) return <div className="leaderboard-widget"><p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Loading Leaderboard...</p></div>
+
+  const podiumIcons = ['🥇', '🥈', '🥉']
 
   return (
-    <div className="leaderboard">
-      <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '16px' }}>🥇 Leaderboard</h3>
-      
-      {leaderboard.length === 0 ? (
-        <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center' }}>
-          No entries yet. Complete mock tests to appear on the leaderboard!
-        </p>
-      ) : (
-        <div className="leaderboard-list">
-          {display.map((entry, i) => (
-            <div key={i} className={`leaderboard-item ${entry.name === currentUser.name ? 'current-user' : ''}`}>
-              <div className="rank">{getRankEmoji(entry.rank)}</div>
-              <div className="player-info">
-                <div className="player-name">{entry.name}</div>
-                <div className="player-branch">{entry.branch} • 🔥 {entry.streak} streak</div>
-              </div>
-              <div className="player-score">
-                <div className="score-value">{entry.totalMockScore}</div>
-                <div className="score-label">Total Score</div>
-              </div>
-            </div>
+    <div className={`leaderboard-widget ${fullView ? 'full' : ''}`}>
+      <div className="lb-header">
+        <h3>🥇 Top Aspirants</h3>
+        <div className="lb-tabs">
+          {['all', 'ECE', 'EE', 'CSE'].map(t => (
+            <button
+              key={t}
+              className={`lb-tab-btn ${tab === t ? 'active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t === 'all' ? 'All' : t}
+            </button>
           ))}
+        </div>
+      </div>
+
+      {displayList.length === 0 && (
+        <div className="lb-empty">
+          <p>No students registered yet. Be the first to climb the ranks!</p>
         </div>
       )}
 
-      {!fullView && leaderboard.length > 5 && (
-        <p style={{ textAlign: 'center', color: '#3b82f6', fontSize: '0.8rem', fontWeight: 700, marginTop: '12px', cursor: 'pointer' }}>
-          View full leaderboard →
-        </p>
+      <div className="lb-list">
+        {displayList.map(student => {
+          const isMe = student.email === currentUser.email
+          return (
+            <div key={student.id} className={`lb-item ${isMe ? 'is-me' : ''} ${student.rank <= 3 ? `rank-${student.rank}` : ''}`}>
+              <div className="lb-rank">
+                {student.rank <= 3 ? podiumIcons[student.rank - 1] : `#${student.rank}`}
+              </div>
+              <div className="lb-info">
+                <div className="lb-name">
+                  {student.name} {isMe && <span className="lb-you-tag">YOU</span>}
+                </div>
+                <div className="lb-details">
+                  <span className="lb-branch">{student.branch}</span> •
+                  <span className="lb-points"> {student.points.toLocaleString()} PTS</span> •
+                  <span className="lb-hours"> {student.totalHours.toFixed(1)}h studied</span>
+                </div>
+              </div>
+              <div className="lb-streak">🔥 {student.streak}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {!fullView && ranked.length > 5 && (
+        <button className="lb-view-all">View Full Leaderboard</button>
       )}
     </div>
   )

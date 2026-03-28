@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { defaultDailyTasks } from '../../data/platformData.js'
 import './DailyTaskChecklist.css'
 
 function DailyTaskChecklist({ fullView }) {
   const [tasks, setTasks] = useState([])
+  const [newTask, setNewTask] = useState('')
   const [loading, setLoading] = useState(true)
-  const [allCompleted, setAllCompleted] = useState(false)
+
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const token = localStorage.getItem('token')
 
@@ -18,8 +20,8 @@ function DailyTaskChecklist({ fullView }) {
       const res = await axios.get(`/api/student/daily-tasks/${user._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
+      // Map API task.name to task.text for compatibility with existing UI if needed, but we'll adapt the UI slightly
       setTasks(res.data.tasks || [])
-      setAllCompleted(res.data.allCompleted || false)
     } catch (err) {
       console.error('Failed to fetch tasks:', err)
     } finally {
@@ -36,44 +38,79 @@ function DailyTaskChecklist({ fullView }) {
         tasks: updated
       }, { headers: { Authorization: `Bearer ${token}` } })
       setTasks(res.data.tasks || updated)
-      setAllCompleted(res.data.allCompleted || false)
     } catch (err) {
       console.error('Failed to update tasks:', err)
     }
   }
 
-  const done = tasks.filter(t => t.completed).length
-  const total = tasks.length
+  const addTask = async (e) => {
+    e.preventDefault()
+    if (!newTask.trim()) return
+    const updated = [...tasks, { name: newTask, category: 'Custom', completed: false }]
+    setTasks(updated)
+    setNewTask('')
+    try {
+      const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
+        date: new Date().toISOString(),
+        tasks: updated
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setTasks(res.data.tasks || updated)
+    } catch (err) {
+      console.error('Failed to add task:', err)
+    }
+  }
+  
+  const deleteTask = async (index) => {
+    const updated = tasks.filter((_, i) => i !== index)
+    setTasks(updated)
+    try {
+      const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
+        date: new Date().toISOString(),
+        tasks: updated
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setTasks(res.data.tasks || updated)
+    } catch (err) {
+      console.error('Failed to delete task:', err)
+    }
+  }
 
-  if (loading) return <div className="task-checklist"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading tasks...</p></div>
+  const completedCount = tasks.filter(t => t.completed).length
+  const totalCount = tasks.length
+  const progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100)
 
   return (
-    <div className="task-checklist">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 900 }}>✅ Daily Tasks</h3>
-        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: allCompleted ? '#10b981' : '#64748b' }}>
-          {done}/{total} Done
-        </span>
+    <div className={`daily-tasks-widget ${fullView ? 'full' : ''}`}>
+      <div className="tasks-header">
+        <h3>📝 Today's Tasks</h3>
+        <span className="tasks-progress-text">{completedCount}/{totalCount} Completed</span>
       </div>
-      <div className="task-progress-bar">
-        <div className="task-progress-fill" style={{ width: total > 0 ? `${(done/total)*100}%` : '0%' }} />
+      
+      <div className="tasks-progress">
+        <div className="tasks-progress-fill" style={{ width: `${progress}%` }}></div>
       </div>
-      <ul className="task-list">
+
+      <div className="tasks-list">
         {tasks.map((task, i) => (
-          <li key={task._id || i}
-            className={`task-item ${task.completed ? 'completed' : ''}`}
-            onClick={() => toggleTask(i)}
-          >
-            <span className="task-checkbox">{task.completed ? '✅' : '⬜'}</span>
-            <span className="task-name">{task.name}</span>
-          </li>
+          <div key={task._id || i} className={`task-item ${task.completed ? 'completed' : ''}`}>
+            <label className="task-label">
+              <input type="checkbox" checked={task.completed} onChange={() => toggleTask(i)} />
+              <span className="task-custom-check"></span>
+              <span className="task-text">{task.name || task.text}</span>
+            </label>
+            {fullView && <button className="task-delete" onClick={() => deleteTask(i)}>×</button>}
+          </div>
         ))}
-      </ul>
-      {allCompleted && (
-        <p style={{ textAlign: 'center', color: '#10b981', fontWeight: 800, fontSize: '0.85rem', marginTop: '8px' }}>
-          🎉 All tasks completed! Your streak grows!
-        </p>
-      )}
+      </div>
+
+      <form className="task-add-form" onSubmit={addTask}>
+        <input 
+          type="text" 
+          value={newTask} 
+          onChange={(e) => setNewTask(e.target.value)} 
+          placeholder="Add a new task..." 
+        />
+        <button type="submit">+</button>
+      </form>
     </div>
   )
 }
