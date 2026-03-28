@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Line, Doughnut } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  AreaChart, Area, PieChart, Pie, Cell 
+} from 'recharts'
 import './ProgressVisualization.css'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
-
-function ProgressVisualization({ branch, fullView }) {
+function ProgressVisualization({ fullView }) {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const token = localStorage.getItem('token')
   const [reports, setReports] = useState([])
@@ -36,96 +36,45 @@ function ProgressVisualization({ branch, fullView }) {
   }
 
   // Build chart data from reports
-  const buildChartData = () => {
-    const last14 = []
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
-      const dayName = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })
-      
-      const report = reports.find(r => {
-        const rDate = new Date(r.date).toISOString().split('T')[0]
-        return rDate === dateStr
-      })
+  const chartData = []
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const dateStr = d.toISOString().split('T')[0]
+    const dayName = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })
+    
+    const report = reports.find(r => {
+      const rDate = new Date(r.date).toISOString().split('T')[0]
+      return rDate === dateStr
+    })
 
-      last14.push({
-        label: dayName,
-        hours: report?.studyHours || 0,
-        pyqs: report?.pyqsSolved || 0,
-        accuracy: report?.accuracy || 0
-      })
-    }
-    return last14
+    chartData.push({
+      name: dayName,
+      hours: report?.studyHours || 0,
+      pyqs: report?.pyqsSolved || 0,
+      accuracy: report?.accuracy || 0
+    })
   }
 
-  const chartData = buildChartData()
   const totalHours = reports.reduce((sum, r) => sum + (r.studyHours || 0), 0)
   const totalPYQs = reports.reduce((sum, r) => sum + (r.pyqsSolved || 0), 0)
   const avgAccuracy = reports.length > 0 
     ? Math.round(reports.reduce((sum, r) => sum + (r.accuracy || 0), 0) / reports.length) 
     : 0
 
-  const lineConfig = {
-    labels: chartData.map(d => d.label),
-    datasets: [
-      {
-        label: 'Study Hours',
-        data: chartData.map(d => d.hours),
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#3b82f6',
-        pointBorderWidth: 2,
-        pointRadius: 3
-      },
-      {
-        label: 'PYQs Solved',
-        data: chartData.map(d => d.pyqs),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.05)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#10b981',
-        pointBorderWidth: 2,
-        pointRadius: 3
-      }
-    ]
-  }
-
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'top', labels: { font: { size: 11, weight: 700 } } }
-    },
-    scales: {
-      y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-      x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } }
-    }
-  }
-
-  // Doughnut for subject distribution
+  // Subject distribution for Pie Chart
   const subjectMap = {}
   reports.forEach(r => {
     if (r.subject) {
       subjectMap[r.subject] = (subjectMap[r.subject] || 0) + (r.studyHours || 0)
     }
   })
-  const subjectLabels = Object.keys(subjectMap)
-  const subjectHours = Object.values(subjectMap)
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+  const pieData = Object.keys(subjectMap).map(key => ({
+    name: key,
+    value: subjectMap[key]
+  }))
 
-  const doughnutData = {
-    labels: subjectLabels.length > 0 ? subjectLabels : ['No data'],
-    datasets: [{
-      data: subjectHours.length > 0 ? subjectHours : [1],
-      backgroundColor: subjectLabels.length > 0 ? colors.slice(0, subjectLabels.length) : ['#e2e8f0'],
-      borderWidth: 2,
-      borderColor: '#fff'
-    }]
-  }
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
   if (loading) return <div className="progress-viz"><p style={{ textAlign: 'center', color: '#94a3b8' }}>Loading charts...</p></div>
 
@@ -153,16 +102,60 @@ function ProgressVisualization({ branch, fullView }) {
         </div>
       </div>
 
-      {/* Line Chart */}
-      <div style={{ height: fullView ? '350px' : '250px', marginBottom: '20px' }}>
-        <Line data={lineConfig} options={lineOptions} />
+      {/* Main Chart */}
+      <div style={{ width: '100%', height: fullView ? 350 : 250, marginBottom: '20px' }}>
+        <ResponsiveContainer>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorPYQs" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+            <Tooltip 
+              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              itemStyle={{ fontWeight: 700, fontSize: '12px' }}
+            />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
+            <Area type="monotone" dataKey="hours" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorHours)" name="Study Hours" />
+            <Area type="monotone" dataKey="pyqs" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorPYQs)" name="PYQs Solved" />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Subject Distribution */}
-      {fullView && subjectLabels.length > 0 && (
-        <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+      {fullView && pieData.length > 0 && (
+        <div style={{ width: '100%', height: 300, marginTop: '20px' }}>
           <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textAlign: 'center', marginBottom: '12px' }}>📊 Subject Distribution</h4>
-          <Doughnut data={doughnutData} options={{ plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }} />
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                itemStyle={{ fontWeight: 700, fontSize: '12px' }}
+              />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '10px', fontWeight: 600 }} />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>
