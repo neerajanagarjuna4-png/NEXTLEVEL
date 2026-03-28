@@ -191,16 +191,7 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   });
 }
 
-// ─── Vercel Serverless Export ───────────────────────────────
-export default function handler(req, res) {
-  // Catch ALL traffic unconditionally to prove Vercel reaches this file
-  return res.status(200).json({
-    status: 'ok',
-    message: 'Absolute raw intercept successful - Vercel reached backend/server.js',
-    url: req.url,
-    originalUrl: req.originalUrl,
-    method: req.method,
-    mongodb_uri_exists: !!process.env.MONGODB_URI,
-  });
-}
+// ─── Note: Vercel deployment uses api/index.js, not this file ───
+// This file is for local development only.
+// Run with: cd backend && node server.js
 
