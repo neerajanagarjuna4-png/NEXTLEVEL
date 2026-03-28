@@ -2,7 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import serverlessHttp from 'serverless-http';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -103,7 +102,20 @@ const connectDB = async () => {
   }
 };
 
-// Ensure DB is connected before any API route
+// ─── Health Check ───────────────────────────────────────────
+// Placed BEFORE DB middleware so it never hangs and proves Vercel is routing correctly
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    hasMongodbUri: !!process.env.MONGODB_URI,
+    lastDbError: lastDbError,
+    uptime: process.uptime()
+  });
+});
+
+// Ensure DB is connected before any real API route
 app.use('/api', async (req, res, next) => {
   // Promise.race to guarantee middleware never hangs the process
   let isTimeout = false;
@@ -122,19 +134,7 @@ app.use('/api', async (req, res, next) => {
   next();
 });
 
-// ─── Health Check ───────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    hasMongodbUri: !!process.env.MONGODB_URI,
-    lastDbError: lastDbError,
-    uptime: process.uptime()
-  });
-});
-
-
+// (Health check was moved above DB middleware)
 
 // ─── API Routes ─────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -185,6 +185,6 @@ if (!process.env.VERCEL) {
   });
 }
 
-// ─── Serverless Export (for Vercel) ─────────────────────────
-export default serverlessHttp(app);
+// ─── Vercel Serverless Export ───────────────────────────────
+export default app;
 
