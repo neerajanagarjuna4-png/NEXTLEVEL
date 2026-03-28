@@ -190,5 +190,42 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
 }
 
 // ─── Vercel Serverless Export ───────────────────────────────
-export default app;
+export default function handler(req, res) {
+  // Debug output if we explicitly hit /api/debug
+  if (req.url === '/api/debug' || req.originalUrl === '/api/debug') {
+    return res.status(200).json({
+      message: 'Vercel debug handler',
+      url: req.url,
+      originalUrl: req.originalUrl,
+      path: req.path,
+      method: req.method
+    });
+  }
+
+  // If hitting /api/health directly
+  if (req.url === '/api/health') {
+    return res.status(200).json({
+      message: 'Raw Vercel handler intercepted /api/health',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // If Express fell through here and we pass to Express, wrap it in a timeout catcher
+  const expressPromise = new Promise((resolve, reject) => {
+    try {
+      app(req, res);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+
+  const forceTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Express hung for 6s')), 6000));
+
+  Promise.race([expressPromise, forceTimeout]).catch(err => {
+    if (!res.headersSent) {
+      res.status(500).json({ error: true, message: err.message, url: req.url });
+    }
+  });
+}
 
