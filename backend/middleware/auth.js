@@ -1,41 +1,38 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'nextlevel_jwt_secret_2024';
-
-// Middleware to protect routes - verifies JWT token
-export const protect = async (req, res, next) => {
+/**
+ * JWT authentication middleware.
+ * Extracts token from Authorization header, verifies it,
+ * and attaches the user to req.user.
+ */
+export const requireAuth = async (req, res, next) => {
   try {
-    let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: true, message: 'Access denied. No token provided.' });
     }
 
+    const token = authHeader.split(' ')[1];
     if (!token) {
-      return res.status(401).json({ message: 'Not authorized, no token' });
+      return res.status(401).json({ error: true, message: 'Access denied. Token missing.' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-
-    if (!req.user) {
-      return res.status(401).json({ message: 'User not found' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ error: true, message: 'User not found. Token invalid.' });
     }
 
+    req.user = user;
     next();
-  } catch (error) {
-    console.error('Auth middleware error:', error.message);
-    res.status(401).json({ message: 'Not authorized, token failed' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: true, message: 'Token expired. Please log in again.' });
+    }
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: true, message: 'Invalid token.' });
+    }
+    return res.status(500).json({ error: true, message: 'Authentication error.' });
   }
 };
-
-// Middleware to check if user is mentor
-export const mentorOnly = (req, res, next) => {
-  if (req.user && req.user.role === 'mentor') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Access denied. Mentor only.' });
-  }
-};
-
-export { JWT_SECRET };

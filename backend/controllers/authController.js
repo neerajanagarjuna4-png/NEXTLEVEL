@@ -1,60 +1,73 @@
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import User from '../models/User.js';
-import { sendMentorNotification, sendPasswordResetEmail } from '../services/emailService.js';
+import { sendMentorNotification } from '../services/emailService.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'nextlevel_jwt_secret_2024';
-
-// Generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
 };
 
 // POST /api/auth/signup
 export const signup = async (req, res) => {
   try {
     const { name, email, password, branch } = req.body;
+
+    // Validation
     if (!name || !email || !password || !branch) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ error: true, message: 'All fields are required (name, email, password, branch).' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    if (password.length < 6) {
+      return res.status(400).json({ error: true, message: 'Password must be at least 6 characters.' });
     }
-
-    // Case-insensitive email check (Issue #11)
-    const normalizedEmail = email.trim().toLowerCase();
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return res.status(400).json({
-        message: 'An account with this email already exists. Please login or use Forgot Password.'
-      });
+    if (!['ECE', 'EE', 'CSE'].includes(branch)) {
+      return res.status(400).json({ error: true, message: 'Branch must be ECE, EE, or CSE.' });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Check duplicate
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(400).json({ error: true, message: 'An account with this email already exists.' });
+    }
 
+    // Create user — password hashed by pre-save hook
     const user = await User.create({
       name,
-      email: normalizedEmail,
-      password: hashedPassword,
+      email: email.toLowerCase(),
+      password,
       branch,
       role: 'student',
-      status: 'pending',
-      targets: { daily: 8, weekly: 50, monthly: 200 }
+      status: 'pending'
     });
 
-    // Send email notification to mentor
-    await sendMentorNotification({ name, email: normalizedEmail, branch });
+    // Send email to mentor (non-blocking)
+    sendMentorNotification({ name, email, branch }).catch(err =>
+      console.error('Email notification failed:', err.message)
+    );
+
+    const token = generateToken(user);
 
     res.status(201).json({
-      message: 'Registration successful. Awaiting mentor approval.',
-      userId: user._id
+      success: true,
+      message: 'Registration successful! Awaiting mentor approval.',
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        branch: user.branch,
+        role: user.role,
+        status: user.status
+      }
     });
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ message: 'Server error during signup' });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ error: true, message: 'An account with this email already exists.' });
+    }
+    console.error('Signup error:', err);
+    res.status(500).json({ error: true, message: 'Server error during registration.' });
   }
 };
 
@@ -62,44 +75,43 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+      return res.status(400).json({ error: true, message: 'Email and password are required.' });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
-
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ error: true, message: 'Invalid email or password.' });
     }
 
-    // Compare passwords using bcrypt (Issue #7)
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ error: true, message: 'Invalid email or password.' });
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user);
 
-    // Return user data without password
-    const userData = {
-      _id: user._id,
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      branch: user.branch,
-      role: user.role,
-      status: user.status,
-      streak: user.streak,
-      badges: user.badges,
-      targets: user.targets,
-      consistencyScore: user.consistencyScore
-    };
-
-    res.json({ token, user: userData });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    res.json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        branch: user.branch,
+        role: user.role,
+        status: user.status,
+        streak: user.streak,
+        badges: user.badges,
+        targets: user.targets,
+        consistencyScore: user.consistencyScore,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: true, message: 'Server error during login.' });
   }
 };
 
@@ -108,71 +120,58 @@ export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ error: true, message: 'User not found.' });
     }
-    res.json({ user });
-  } catch (error) {
-    console.error('GetMe error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('GetMe error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
-// POST /api/auth/forgot-password (Issue #8)
-export const forgotPassword = async (req, res) => {
+// POST /api/auth/mentor-login (special mentor login with master password)
+export const mentorLogin = async (req, res) => {
   try {
-    const { email } = req.body;
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
+    const { email, password } = req.body;
 
-    if (!user) {
-      return res.status(404).json({ message: 'No account found with this email' });
+    if (!email || !password) {
+      return res.status(400).json({ error: true, message: 'Email and password are required.' });
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
-    await user.save();
-
-    await sendPasswordResetEmail(normalizedEmail, resetToken);
-
-    res.json({ message: 'Password reset link sent to your email' });
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// POST /api/auth/reset-password
-export const resetPassword = async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword) {
-      return res.status(400).json({ message: 'Token and new password are required' });
-    }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    // Check master password first
+    const masterPassword = process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123';
+    if (password !== masterPassword) {
+      return res.status(401).json({ error: true, message: 'Invalid credentials.' });
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpire: { $gt: Date.now() }
+    // Find or create mentor
+    let mentor = await User.findOne({ email: email.toLowerCase(), role: 'mentor' });
+    if (!mentor) {
+      mentor = await User.create({
+        name: 'Bhima Sankar Sir',
+        email: email.toLowerCase(),
+        password: masterPassword,
+        branch: 'ECE',
+        role: 'mentor',
+        status: 'approved'
+      });
+    }
+
+    const token = generateToken(mentor);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        _id: mentor._id,
+        name: mentor.name,
+        email: mentor.email,
+        role: mentor.role,
+        status: mentor.status
+      }
     });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    await user.save();
-
-    res.json({ message: 'Password reset successful. You can now login.' });
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    console.error('Mentor login error:', err);
+    res.status(500).json({ error: true, message: 'Server error during login.' });
   }
 };

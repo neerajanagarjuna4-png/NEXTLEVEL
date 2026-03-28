@@ -4,27 +4,43 @@ const studyReportSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'User ID is required'],
+    index: true
   },
-  date: {
-    type: Date,
-    required: true
+  date: { type: Date, required: [true, 'Date is required'] },
+  subject: { type: String, required: [true, 'Subject is required'], trim: true },
+  topic: { type: String, required: [true, 'Topic is required'], trim: true },
+  studyHours: {
+    type: Number,
+    required: [true, 'Study hours is required'],
+    min: [0, 'Study hours cannot be negative'],
+    max: [24, 'Study hours cannot exceed 24']
   },
-  subject: String,
-  topic: String,
-  studyHours: Number,
-  pyqsSolved: Number,
-  mockTestScore: Number,
-  accuracy: Number,
-  difficulties: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  pyqsSolved: {
+    type: Number,
+    required: [true, 'PYQs solved is required'],
+    min: [0, 'PYQs solved cannot be negative']
+  },
+  mockTestScore: {
+    type: Number,
+    min: [0, 'Mock test score cannot be negative'],
+    max: [100, 'Mock test score cannot exceed 100'],
+    default: 0
+  },
+  accuracy: {
+    type: Number,
+    min: [0, 'Accuracy cannot be negative'],
+    max: [100, 'Accuracy cannot exceed 100'],
+    default: 0
+  },
+  difficulties: { type: String, trim: true, default: '' },
+  createdAt: { type: Date, default: Date.now }
 });
 
-// Compound index to ensure one report per user per day
+// One report per student per day
 studyReportSchema.index({ userId: 1, date: 1 }, { unique: true });
+// For aggregation queries
+studyReportSchema.index({ userId: 1, date: -1 });
 
 const StudyReport = mongoose.model('StudyReport', studyReportSchema);
 export default StudyReport;

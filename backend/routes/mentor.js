@@ -1,36 +1,29 @@
-import express from 'express';
-import { protect, mentorOnly } from '../middleware/auth.js';
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/role.js';
 import {
-  getStudents,
-  getApprovedStudents,
-  approveStudent,
-  rejectStudent,
-  getStudentReports,
-  getStudentDetail,
-  createOrUpdateTimetable,
-  getStudentTimetable,
-  updateMentorshipSteps
+  getPendingStudents, approveStudent, rejectStudent,
+  getApprovedStudents, getStudentDetail,
+  setTimetable, updateJourneyStep
 } from '../controllers/mentorController.js';
 
-const router = express.Router();
+const router = Router();
 
-// Student lists
-router.get('/students', protect, mentorOnly, getStudents);
-router.get('/students/approved', protect, mentorOnly, getApprovedStudents);
+// All mentor routes require auth + mentor role
+router.use(requireAuth);
+router.use(requireRole(['mentor']));
 
-// Approve / Reject
-router.put('/students/:id/approve', protect, mentorOnly, approveStudent);
-router.put('/students/:id/reject', protect, mentorOnly, rejectStudent);
+// Student management
+router.get('/pending-students', getPendingStudents);
+router.post('/approve-student/:userId', approveStudent);
+router.post('/reject-student/:userId', rejectStudent);
 
-// Student detail & reports
-router.get('/student/:id/reports', protect, mentorOnly, getStudentReports);
-router.get('/student/:id/detail', protect, mentorOnly, getStudentDetail);
+// Approved students with stats
+router.get('/approved-students', getApprovedStudents);
+router.get('/student-detail/:userId', getStudentDetail);
 
-// Timetable management
-router.post('/timetable/:studentId', protect, mentorOnly, createOrUpdateTimetable);
-router.get('/timetable/:studentId', protect, mentorOnly, getStudentTimetable);
-
-// Mentorship steps
-router.post('/step/:studentId', protect, mentorOnly, updateMentorshipSteps);
+// Timetable & Journey management
+router.post('/timetable/:userId', setTimetable);
+router.post('/journey/:userId', updateJourneyStep);
 
 export default router;

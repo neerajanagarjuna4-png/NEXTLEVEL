@@ -1,52 +1,47 @@
-import express from 'express';
-import { protect } from '../middleware/auth.js';
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/role.js';
 import {
-  getMetrics,
-  updateTargets,
-  submitReport,
-  getReports,
-  updateStreak,
-  getSyllabusProgress,
-  updateSyllabusProgress,
-  bulkUpdateSyllabusProgress,
-  getDailyTasks,
-  updateDailyTasks,
-  getTimetable,
-  markTimetableDayComplete,
-  getLeaderboard,
-  getMentorshipSteps
+  getTargets, updateTargets,
+  getProgress,
+  createStudyReport, getStudyReports,
+  getSyllabusProgress, updateSyllabusProgress,
+  getDailyTasks, updateDailyTasks,
+  getStreak, getRewards,
+  getTimetable, getJourney
 } from '../controllers/studentController.js';
 
-const router = express.Router();
+const router = Router();
 
-// Metrics
-router.get('/metrics/:userId', protect, getMetrics);
-router.post('/targets', protect, updateTargets);
+// All student routes require auth + student role
+router.use(requireAuth);
+router.use(requireRole(['student']));
+
+// Targets
+router.get('/targets/:userId', getTargets);
+router.post('/targets/:userId', updateTargets);
+
+// Progress (aggregated study hours)
+router.get('/progress/:userId', getProgress);
 
 // Study Reports
-router.post('/report', protect, submitReport);
-router.get('/reports/:userId', protect, getReports);
-
-// Streaks
-router.post('/streak', protect, updateStreak);
+router.post('/study-report', createStudyReport);
+router.get('/study-reports/:userId', getStudyReports);
 
 // Syllabus Progress
-router.get('/syllabus-progress/:userId', protect, getSyllabusProgress);
-router.post('/syllabus-progress', protect, updateSyllabusProgress);
-router.post('/syllabus-progress/bulk', protect, bulkUpdateSyllabusProgress);
+router.get('/syllabus-progress/:userId', getSyllabusProgress);
+router.post('/syllabus-progress/:userId', updateSyllabusProgress);
 
 // Daily Tasks
-router.get('/daily-tasks/:date', protect, getDailyTasks);
-router.put('/daily-tasks/:date', protect, updateDailyTasks);
+router.get('/daily-tasks/:userId', getDailyTasks);
+router.post('/daily-tasks/:userId', updateDailyTasks);
 
-// Timetable (student side)
-router.get('/timetable', protect, getTimetable);
-router.post('/timetable-complete', protect, markTimetableDayComplete);
+// Streak & Rewards
+router.get('/streak/:userId', getStreak);
+router.get('/rewards/:userId', getRewards);
 
-// Leaderboard
-router.get('/leaderboard', protect, getLeaderboard);
-
-// Mentorship Steps (read-only for student)
-router.get('/mentorship-steps', protect, getMentorshipSteps);
+// Timetable & Journey (read-only for students)
+router.get('/timetable/:userId', getTimetable);
+router.get('/journey/:userId', getJourney);
 
 export default router;

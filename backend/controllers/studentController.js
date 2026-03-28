@@ -1,451 +1,485 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
-import Timetable from '../models/Timetable.js';
-import MentorshipStep from '../models/MentorshipStep.js';
+import { getGATESyllabus } from '../services/gateSyllabusData.js';
 
-// ──────────────────────────────────────────────
-// METRICS (Issue #1)
-// ──────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+function startOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1); // Monday
+  d.setUTCDate(diff);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+function startOfMonth(date) {
+  const d = new Date(date);
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
 
-// GET /api/student/metrics/:userId
-export const getMetrics = async (req, res) => {
+// ─── GET /api/student/targets/:userId ──────────────────────
+export const getTargets = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('targets name');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+    res.json({ success: true, targets: user.targets });
+  } catch (err) {
+    console.error('getTargets error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// POST /api/student/targets/:userId
+export const updateTargets = async (req, res) => {
+  try {
+    const { daily, weekly, monthly } = req.body;
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    if (daily !== undefined) user.targets.daily = Math.max(0, Number(daily));
+    if (weekly !== undefined) user.targets.weekly = Math.max(0, Number(weekly));
+    if (monthly !== undefined) user.targets.monthly = Math.max(0, Number(monthly));
+    await user.save();
+
+    res.json({ success: true, targets: user.targets });
+  } catch (err) {
+    console.error('updateTargets error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── GET /api/student/progress/:userId ─────────────────────
+// Returns { today, week, month } study hours aggregated from StudyReport
+export const getProgress = async (req, res) => {
   try {
     const { userId } = req.params;
     const now = new Date();
 
-    // Today's start (midnight)
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    // This week's Monday
-    const dayOfWeek = now.getDay();
-    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - mondayOffset);
-
-    // This month's first day
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    // Aggregate daily hours
-    const [dailyResult] = await StudyReport.aggregate([
-      { $match: { userId: userId, date: { $gte: todayStart } } },
-      { $group: { _id: null, total: { $sum: '$studyHours' } } }
+    const oid = new mongoose.Types.ObjectId(userId);
+    const [todayAgg, weekAgg, monthAgg] = await Promise.all([
+      StudyReport.aggregate([
+        { $match: { userId: oid, date: { $gte: startOfDay(now), $lte: endOfDay(now) } } },
+        { $group: { _id: null, total: { $sum: '$studyHours' }, pyqs: { $sum: '$pyqsSolved' }, avgAccuracy: { $avg: '$accuracy' } } }
+      ]),
+      StudyReport.aggregate([
+        { $match: { userId: oid, date: { $gte: startOfWeek(now), $lte: endOfDay(now) } } },
+        { $group: { _id: null, total: { $sum: '$studyHours' }, pyqs: { $sum: '$pyqsSolved' }, avgAccuracy: { $avg: '$accuracy' } } }
+      ]),
+      StudyReport.aggregate([
+        { $match: { userId: oid, date: { $gte: startOfMonth(now), $lte: endOfDay(now) } } },
+        { $group: { _id: null, total: { $sum: '$studyHours' }, pyqs: { $sum: '$pyqsSolved' }, avgAccuracy: { $avg: '$accuracy' } } }
+      ])
     ]);
 
-    const [weeklyResult] = await StudyReport.aggregate([
-      { $match: { userId: userId, date: { $gte: weekStart } } },
-      { $group: { _id: null, total: { $sum: '$studyHours' } } }
-    ]);
-
-    const [monthlyResult] = await StudyReport.aggregate([
-      { $match: { userId: userId, date: { $gte: monthStart } } },
-      { $group: { _id: null, total: { $sum: '$studyHours' } } }
-    ]);
-
-    const user = await User.findById(userId).select('targets streak badges consistencyScore');
+    const user = await User.findById(userId).select('targets');
 
     res.json({
-      daily: dailyResult?.total || 0,
-      weekly: weeklyResult?.total || 0,
-      monthly: monthlyResult?.total || 0,
-      targets: user?.targets || { daily: 8, weekly: 50, monthly: 200 },
-      streak: user?.streak || 0,
-      badges: user?.badges || [],
-      consistencyScore: user?.consistencyScore || 0
-    });
-  } catch (error) {
-    console.error('getMetrics error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// POST /api/student/targets
-export const updateTargets = async (req, res) => {
-  try {
-    const { daily, weekly, monthly } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { targets: { daily, weekly, monthly } },
-      { new: true }
-    ).select('-password');
-    res.json({ targets: user.targets });
-  } catch (error) {
-    console.error('updateTargets error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// STUDY REPORTS
-// ──────────────────────────────────────────────
-
-// POST /api/student/report
-export const submitReport = async (req, res) => {
-  try {
-    const { date, subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties } = req.body;
-    const userId = req.user._id;
-
-    // Upsert: update or create report for this date
-    const report = await StudyReport.findOneAndUpdate(
-      { userId, date: new Date(date) },
-      { userId, date: new Date(date), subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    // Update streak (Issue #2)
-    await updateStreakLogic(userId);
-
-    res.json({ message: 'Report submitted', report });
-  } catch (error) {
-    console.error('submitReport error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// GET /api/student/reports/:userId
-export const getReports = async (req, res) => {
-  try {
-    const reports = await StudyReport.find({ userId: req.params.userId })
-      .sort({ date: -1 })
-      .limit(100);
-    res.json(reports);
-  } catch (error) {
-    console.error('getReports error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// STREAKS (Issue #2)
-// ──────────────────────────────────────────────
-
-async function updateStreakLogic(userId) {
-  const user = await User.findById(userId);
-  if (!user) return;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const lastActive = user.lastActiveDate ? new Date(user.lastActiveDate) : null;
-  if (lastActive) lastActive.setHours(0, 0, 0, 0);
-
-  if (lastActive && lastActive.getTime() === today.getTime()) {
-    // Already active today, no change
-    return;
-  }
-
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (lastActive && lastActive.getTime() === yesterday.getTime()) {
-    // Consecutive day: increment streak
-    user.streak += 1;
-  } else {
-    // Gap > 1 day: reset streak
-    user.streak = 1;
-  }
-
-  user.lastActiveDate = today;
-
-  // Check for badge milestones (Issue #10)
-  const badgeMilestones = [
-    { days: 7, name: 'Consistency Builder 🌱' },
-    { days: 14, name: 'Dedicated Aspirant ⚡' },
-    { days: 30, name: 'Discipline Master 👑' },
-    { days: 60, name: 'Iron Will 🔥' },
-    { days: 100, name: 'GATE Warrior 🏆' }
-  ];
-
-  for (const milestone of badgeMilestones) {
-    if (user.streak >= milestone.days) {
-      const alreadyHas = user.badges.some(b => b.name === milestone.name);
-      if (!alreadyHas) {
-        user.badges.push({ name: milestone.name, earnedDate: new Date() });
+      success: true,
+      progress: {
+        today: {
+          studyHours: todayAgg[0]?.total || 0,
+          pyqsSolved: todayAgg[0]?.pyqs || 0,
+          accuracy: Math.round(todayAgg[0]?.avgAccuracy || 0)
+        },
+        week: {
+          studyHours: weekAgg[0]?.total || 0,
+          pyqsSolved: weekAgg[0]?.pyqs || 0,
+          accuracy: Math.round(weekAgg[0]?.avgAccuracy || 0)
+        },
+        month: {
+          studyHours: monthAgg[0]?.total || 0,
+          pyqsSolved: monthAgg[0]?.pyqs || 0,
+          accuracy: Math.round(monthAgg[0]?.avgAccuracy || 0)
+        },
+        targets: user?.targets || { daily: 6, weekly: 42, monthly: 180 }
       }
-    }
-  }
-
-  // Update consistency score
-  const totalReports = await StudyReport.countDocuments({ userId });
-  const daysSinceSignup = Math.max(1, Math.ceil((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24)));
-  user.consistencyScore = Math.min(100, Math.round((totalReports / daysSinceSignup) * 100));
-
-  await user.save();
-}
-
-// POST /api/student/streak (manual trigger from frontend)
-export const updateStreak = async (req, res) => {
-  try {
-    await updateStreakLogic(req.user._id);
-    const user = await User.findById(req.user._id).select('streak badges lastActiveDate consistencyScore');
-    res.json({
-      streak: user.streak,
-      badges: user.badges,
-      lastActiveDate: user.lastActiveDate,
-      consistencyScore: user.consistencyScore
     });
-  } catch (error) {
-    console.error('updateStreak error:', error);
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    console.error('getProgress error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
-// ──────────────────────────────────────────────
-// SYLLABUS PROGRESS (Issue #3)
-// ──────────────────────────────────────────────
+// ─── POST /api/student/study-report ────────────────────────
+export const createStudyReport = async (req, res) => {
+  try {
+    const { userId, date, subject, topic, studyHours, pyqsSolved, mockTestScore, accuracy, difficulties } = req.body;
 
-// GET /api/student/syllabus-progress/:userId
+    if (!userId || !date || !subject || !topic || studyHours === undefined || pyqsSolved === undefined) {
+      return res.status(400).json({ error: true, message: 'Missing required fields (userId, date, subject, topic, studyHours, pyqsSolved).' });
+    }
+
+    const reportDate = startOfDay(new Date(date));
+
+    // Check for duplicate
+    const existing = await StudyReport.findOne({ userId, date: reportDate });
+    if (existing) {
+      return res.status(400).json({ error: true, message: 'A study report already exists for this date. Update it instead.' });
+    }
+
+    const report = await StudyReport.create({
+      userId,
+      date: reportDate,
+      subject,
+      topic,
+      studyHours: Math.max(0, Number(studyHours)),
+      pyqsSolved: Math.max(0, Number(pyqsSolved)),
+      mockTestScore: Math.min(100, Math.max(0, Number(mockTestScore || 0))),
+      accuracy: Math.min(100, Math.max(0, Number(accuracy || 0))),
+      difficulties: difficulties || ''
+    });
+
+    // Update streak logic
+    await updateStreakAfterReport(userId, reportDate);
+
+    res.status(201).json({ success: true, report });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ error: true, message: 'A study report already exists for this date.' });
+    }
+    console.error('createStudyReport error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── GET /api/student/study-reports/:userId ────────────────
+export const getStudyReports = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { start, end } = req.query;
+
+    const filter = { userId };
+    if (start || end) {
+      filter.date = {};
+      if (start) filter.date.$gte = startOfDay(new Date(start));
+      if (end) filter.date.$lte = endOfDay(new Date(end));
+    }
+
+    const reports = await StudyReport.find(filter).sort({ date: -1 }).limit(100);
+    res.json({ success: true, reports });
+  } catch (err) {
+    console.error('getStudyReports error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── Syllabus Progress ─────────────────────────────────────
 export const getSyllabusProgress = async (req, res) => {
   try {
-    const progress = await SyllabusProgress.findOne({ userId: req.params.userId });
-    res.json(progress || { progress: [] });
-  } catch (error) {
-    console.error('getSyllabusProgress error:', error);
-    res.status(500).json({ message: 'Server error' });
+    const { userId } = req.params;
+    const user = await User.findById(userId).select('branch');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    let progress = await SyllabusProgress.findOne({ userId });
+    if (!progress) {
+      // Initialize with all subtopics uncompleted
+      const syllabusItems = [];
+      const branchSyllabus = getGATESyllabus(user.branch);
+      if (branchSyllabus && branchSyllabus.subjects) {
+        branchSyllabus.subjects.forEach((subject, si) => {
+          (subject.topics || []).forEach((topic, ti) => {
+            (topic.subtopics || []).forEach((_, sti) => {
+              syllabusItems.push({ subjectIndex: si, topicIndex: ti, subtopicIndex: sti, completed: false });
+            });
+          });
+        });
+      }
+
+      progress = await SyllabusProgress.create({
+        userId,
+        branch: user.branch,
+        progress: syllabusItems
+      });
+    }
+
+    const totalSubtopics = progress.progress.length;
+    const completedSubtopics = progress.progress.filter(p => p.completed).length;
+
+    res.json({
+      success: true,
+      branch: progress.branch,
+      totalSubtopics,
+      completedSubtopics,
+      percentage: totalSubtopics > 0 ? Math.round((completedSubtopics / totalSubtopics) * 100) : 0,
+      progress: progress.progress,
+      syllabusData: getGATESyllabus(progress.branch)
+    });
+  } catch (err) {
+    console.error('getSyllabusProgress error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
-// POST /api/student/syllabus-progress
 export const updateSyllabusProgress = async (req, res) => {
   try {
-    const { subjectIndex, topicIndex, subtopicIndex, completed, branch } = req.body;
-    const userId = req.user._id;
+    const { userId } = req.params;
+    const { subjectIndex, topicIndex, subtopicIndex, completed } = req.body;
 
-    let progressDoc = await SyllabusProgress.findOne({ userId });
-
-    if (!progressDoc) {
-      progressDoc = new SyllabusProgress({ userId, branch, progress: [] });
+    if (subjectIndex === undefined || topicIndex === undefined || subtopicIndex === undefined) {
+      return res.status(400).json({ error: true, message: 'subjectIndex, topicIndex, subtopicIndex are required.' });
     }
 
-    // Find existing entry or create new
-    const existingIdx = progressDoc.progress.findIndex(
+    let progress = await SyllabusProgress.findOne({ userId });
+    if (!progress) {
+      return res.status(404).json({ error: true, message: 'No syllabus progress found. Access GET first to initialize.' });
+    }
+
+    // Find the matching entry
+    const entry = progress.progress.find(
       p => p.subjectIndex === subjectIndex && p.topicIndex === topicIndex && p.subtopicIndex === subtopicIndex
     );
 
-    if (existingIdx >= 0) {
-      progressDoc.progress[existingIdx].completed = completed;
-      progressDoc.progress[existingIdx].completedDate = completed ? new Date() : null;
-    } else if (completed) {
-      progressDoc.progress.push({
+    if (entry) {
+      entry.completed = !!completed;
+      entry.completedDate = completed ? new Date() : null;
+    } else {
+      progress.progress.push({
         subjectIndex, topicIndex, subtopicIndex,
-        completed: true,
-        completedDate: new Date()
+        completed: !!completed,
+        completedDate: completed ? new Date() : null
       });
     }
 
-    progressDoc.lastUpdated = new Date();
-    await progressDoc.save();
+    progress.lastUpdated = new Date();
+    await progress.save();
 
-    res.json({ message: 'Progress updated', progress: progressDoc.progress });
-  } catch (error) {
-    console.error('updateSyllabusProgress error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// POST /api/student/syllabus-progress/bulk
-export const bulkUpdateSyllabusProgress = async (req, res) => {
-  try {
-    const { updates, branch } = req.body; // updates: [{subjectIndex, topicIndex, subtopicIndex, completed}]
-    const userId = req.user._id;
-
-    let progressDoc = await SyllabusProgress.findOne({ userId });
-    if (!progressDoc) {
-      progressDoc = new SyllabusProgress({ userId, branch, progress: [] });
-    }
-
-    for (const update of updates) {
-      const existingIdx = progressDoc.progress.findIndex(
-        p => p.subjectIndex === update.subjectIndex &&
-             p.topicIndex === update.topicIndex &&
-             p.subtopicIndex === update.subtopicIndex
-      );
-      if (existingIdx >= 0) {
-        progressDoc.progress[existingIdx].completed = update.completed;
-        progressDoc.progress[existingIdx].completedDate = update.completed ? new Date() : null;
-      } else if (update.completed) {
-        progressDoc.progress.push({ ...update, completedDate: new Date() });
-      }
-    }
-
-    progressDoc.lastUpdated = new Date();
-    await progressDoc.save();
-
-    res.json({ message: 'Bulk progress updated', progress: progressDoc.progress });
-  } catch (error) {
-    console.error('bulkUpdateSyllabusProgress error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// DAILY TASKS (Issue #4)
-// ──────────────────────────────────────────────
-
-const DEFAULT_TASKS = [
-  { id: 'revision', name: '📖 Complete daily revision' },
-  { id: 'pyqs', name: '📝 Solve PYQs' },
-  { id: 'mock', name: '📊 Attempt mock test' },
-  { id: 'notes', name: '✍️ Write summary notes' },
-  { id: 'report', name: '📋 Submit study report' },
-];
-
-// GET /api/student/daily-tasks/:date
-export const getDailyTasks = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const dateStr = req.params.date; // YYYY-MM-DD
-
-    let taskDoc = await DailyTask.findOne({ userId, date: dateStr });
-
-    if (!taskDoc) {
-      // Generate default tasks for today
-      taskDoc = await DailyTask.create({
-        userId,
-        date: dateStr,
-        tasks: DEFAULT_TASKS.map(t => ({ ...t, completed: false })),
-        allCompleted: false
-      });
-    }
-
-    res.json(taskDoc);
-  } catch (error) {
-    console.error('getDailyTasks error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// PUT /api/student/daily-tasks/:date
-export const updateDailyTasks = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const dateStr = req.params.date;
-    const { tasks } = req.body;
-
-    const allCompleted = tasks.every(t => t.completed);
-
-    const taskDoc = await DailyTask.findOneAndUpdate(
-      { userId, date: dateStr },
-      { tasks, allCompleted },
-      { new: true, upsert: true }
-    );
-
-    // If all tasks completed, update streak
-    if (allCompleted) {
-      await updateStreakLogic(userId);
-    }
-
-    res.json(taskDoc);
-  } catch (error) {
-    console.error('updateDailyTasks error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// TIMETABLE (Student side)
-// ──────────────────────────────────────────────
-
-// GET /api/student/timetable
-export const getTimetable = async (req, res) => {
-  try {
-    const timetable = await Timetable.findOne({ studentId: req.user._id }).sort({ weekStart: -1 });
-    res.json({ timetable: timetable || null });
-  } catch (error) {
-    console.error('getTimetable error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// POST /api/student/timetable-complete
-export const markTimetableDayComplete = async (req, res) => {
-  try {
-    const { timetableId, day, completed } = req.body;
-    if (!timetableId || !day) {
-      return res.status(400).json({ message: 'timetableId and day are required' });
-    }
-
-    const timetable = await Timetable.findOne({ _id: timetableId, studentId: req.user._id });
-    if (!timetable) return res.status(404).json({ message: 'Timetable not found' });
-
-    const dayEntry = timetable.days.find(d => d.day === day);
-    if (dayEntry) {
-      dayEntry.studentCompleted = completed;
-      dayEntry.studentCompletedAt = completed ? new Date() : null;
-    }
-    await timetable.save();
-    res.json({ success: true, timetable });
-  } catch (error) {
-    console.error('markTimetableDayComplete error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// LEADERBOARD
-// ──────────────────────────────────────────────
-
-// GET /api/student/leaderboard
-export const getLeaderboard = async (req, res) => {
-  try {
-    const students = await User.find({ role: 'student', status: 'approved' })
-      .select('name branch consistencyScore streak badges')
-      .sort({ consistencyScore: -1, streak: -1 })
-      .limit(10);
-
-    const currentUserId = req.user._id.toString();
-
-    // Get current user's rank
-    const allStudents = await User.find({ role: 'student', status: 'approved' })
-      .select('_id consistencyScore streak')
-      .sort({ consistencyScore: -1, streak: -1 });
-
-    const rank = allStudents.findIndex(s => s._id.toString() === currentUserId) + 1;
+    const totalSubtopics = progress.progress.length;
+    const completedSubtopics = progress.progress.filter(p => p.completed).length;
 
     res.json({
-      leaderboard: students.map((s, i) => ({
-        rank: i + 1,
-        name: s.name,
-        branch: s.branch,
-        consistencyScore: s.consistencyScore,
-        streak: s.streak,
-        badges: s.badges?.length || 0,
-        isCurrentUser: s._id.toString() === currentUserId
-      })),
-      currentUserRank: rank > 0 ? rank : null
+      success: true,
+      totalSubtopics,
+      completedSubtopics,
+      percentage: totalSubtopics > 0 ? Math.round((completedSubtopics / totalSubtopics) * 100) : 0
     });
-  } catch (error) {
-    console.error('getLeaderboard error:', error);
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    console.error('updateSyllabusProgress error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
 
-// ──────────────────────────────────────────────
-// MENTORSHIP STEPS (Student read-only)
-// ──────────────────────────────────────────────
-
-// GET /api/student/mentorship-steps
-export const getMentorshipSteps = async (req, res) => {
+// ─── Daily Tasks ───────────────────────────────────────────
+export const getDailyTasks = async (req, res) => {
   try {
-    const record = await MentorshipStep.findOne({ studentId: req.user._id });
-    if (!record) {
-      // Return default uncompleted steps
-      const defaultSteps = [
-        'Initial consultation and understanding your needs',
-        'Identify Your Goal',
-        'Fix the Resources',
-        'Plan the Schedule',
-        'Start Working',
-        'Regular Feedback',
-        'Weekly Zoom Call',
-        'Continuous Monitoring'
-      ].map((title, i) => ({ stepNumber: i + 1, title, completed: false, completedAt: null }));
-      return res.json({ steps: defaultSteps });
+    const { userId } = req.params;
+    const dateStr = req.query.date || new Date().toISOString();
+    const taskDate = startOfDay(new Date(dateStr));
+
+    let dailyTask = await DailyTask.findOne({ userId, date: taskDate });
+    if (!dailyTask) {
+      // Auto-create default tasks
+      dailyTask = await DailyTask.create({
+        userId,
+        date: taskDate,
+        tasks: DailyTask.DEFAULT_TASKS.map(name => ({ name, completed: false }))
+      });
     }
-    res.json({ steps: record.steps });
-  } catch (error) {
-    console.error('getMentorshipSteps error:', error);
-    res.status(500).json({ message: 'Server error' });
+
+    const allCompleted = dailyTask.tasks.every(t => t.completed);
+
+    res.json({
+      success: true,
+      date: taskDate,
+      tasks: dailyTask.tasks,
+      allCompleted,
+      completedCount: dailyTask.tasks.filter(t => t.completed).length,
+      totalCount: dailyTask.tasks.length
+    });
+  } catch (err) {
+    console.error('getDailyTasks error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+export const updateDailyTasks = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { date, tasks } = req.body;
+    const taskDate = startOfDay(new Date(date || new Date()));
+
+    let dailyTask = await DailyTask.findOne({ userId, date: taskDate });
+    if (!dailyTask) {
+      dailyTask = await DailyTask.create({
+        userId,
+        date: taskDate,
+        tasks: DailyTask.DEFAULT_TASKS.map(name => ({ name, completed: false }))
+      });
+    }
+
+    // Update task completion status
+    if (Array.isArray(tasks)) {
+      tasks.forEach(update => {
+        const task = dailyTask.tasks.find(t => t.name === update.name || t._id.toString() === update._id);
+        if (task) task.completed = !!update.completed;
+      });
+    }
+
+    await dailyTask.save();
+
+    // Check if this triggers streak
+    const allCompleted = dailyTask.tasks.every(t => t.completed);
+    if (allCompleted) {
+      await updateStreakAfterReport(userId, taskDate);
+    }
+
+    res.json({
+      success: true,
+      tasks: dailyTask.tasks,
+      allCompleted,
+      completedCount: dailyTask.tasks.filter(t => t.completed).length
+    });
+  } catch (err) {
+    console.error('updateDailyTasks error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── Streak Logic ──────────────────────────────────────────
+async function updateStreakAfterReport(userId, date) {
+  try {
+    const user = await User.findById(userId);
+    if (!user) return;
+
+    const today = startOfDay(date);
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    // Check if report exists AND all daily tasks are completed
+    const [report, dailyTask] = await Promise.all([
+      StudyReport.findOne({ userId, date: today }),
+      DailyTask.findOne({ userId, date: today })
+    ]);
+
+    const hasReport = !!report;
+    const allTasksDone = dailyTask ? dailyTask.tasks.every(t => t.completed) : false;
+
+    if (hasReport && allTasksDone) {
+      if (user.lastActiveDate) {
+        const lastActive = startOfDay(user.lastActiveDate);
+        const diffDays = Math.round((today - lastActive) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          user.streak += 1;
+        } else if (diffDays === 0) {
+          // Same day, no change
+        } else {
+          user.streak = 1; // Reset, start fresh
+        }
+      } else {
+        user.streak = 1;
+      }
+      user.lastActiveDate = today;
+
+      // Award badges
+      const streakMilestones = [
+        { threshold: 7, name: '🔥 7-Day Warrior' },
+        { threshold: 14, name: '⚡ 14-Day Champion' },
+        { threshold: 30, name: '🏆 30-Day Legend' },
+        { threshold: 60, name: '💎 60-Day Diamond' },
+        { threshold: 100, name: '👑 100-Day Master' }
+      ];
+
+      for (const milestone of streakMilestones) {
+        if (user.streak >= milestone.threshold) {
+          const alreadyHas = user.badges.some(b => b.name === milestone.name);
+          if (!alreadyHas) {
+            user.badges.push({ name: milestone.name, earnedDate: new Date() });
+          }
+        }
+      }
+
+      await user.save();
+    }
+  } catch (err) {
+    console.error('updateStreakAfterReport error:', err);
+  }
+}
+
+// GET /api/student/streak/:userId
+export const getStreak = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('streak badges lastActiveDate');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    res.json({
+      success: true,
+      streak: user.streak,
+      badges: user.badges,
+      lastActiveDate: user.lastActiveDate
+    });
+  } catch (err) {
+    console.error('getStreak error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// GET /api/student/rewards/:userId
+export const getRewards = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('streak badges consistencyScore');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    const milestones = [7, 14, 30, 60, 100];
+    const nextMilestone = milestones.find(m => m > user.streak) || null;
+    const daysToNext = nextMilestone ? nextMilestone - user.streak : 0;
+
+    res.json({
+      success: true,
+      streak: user.streak,
+      badges: user.badges,
+      consistencyScore: user.consistencyScore,
+      nextMilestone,
+      daysToNextMilestone: daysToNext
+    });
+  } catch (err) {
+    console.error('getRewards error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// GET /api/student/timetable/:userId
+export const getTimetable = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('timetable');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    res.json({ success: true, timetable: user.timetable || [] });
+  } catch (err) {
+    console.error('getTimetable error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// GET /api/student/journey/:userId
+export const getJourney = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('journeySteps');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+
+    const completedCount = user.journeySteps.filter(s => s.completed).length;
+
+    res.json({
+      success: true,
+      journeySteps: user.journeySteps,
+      completedCount,
+      totalSteps: user.journeySteps.length,
+      percentage: user.journeySteps.length > 0 ? Math.round((completedCount / user.journeySteps.length) * 100) : 0
+    });
+  } catch (err) {
+    console.error('getJourney error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
   }
 };

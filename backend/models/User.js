@@ -1,23 +1,20 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
+  name: { type: String, required: [true, 'Name is required'], trim: true },
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    trim: true
   },
-  password: {
-    type: String,
-    required: true
-  },
+  password: { type: String, required: [true, 'Password is required'], minlength: 6 },
   branch: {
     type: String,
-    enum: ['ECE', 'EE', 'CSE'],
-    required: true
+    enum: { values: ['ECE', 'EE', 'CSE'], message: 'Branch must be ECE, EE, or CSE' },
+    required: [true, 'Branch is required']
   },
   role: {
     type: String,
@@ -29,34 +26,67 @@ const userSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
-  streak: {
-    type: Number,
-    default: 0
-  },
-  lastActiveDate: {
-    type: Date,
-    default: null
-  },
+  streak: { type: Number, default: 0 },
+  lastActiveDate: { type: Date, default: null },
   badges: [{
-    name: String,
-    earnedDate: Date
+    name: { type: String, required: true },
+    earnedDate: { type: Date, default: Date.now }
   }],
   targets: {
-    daily: { type: Number, default: 0 },
-    weekly: { type: Number, default: 0 },
-    monthly: { type: Number, default: 0 }
+    daily: { type: Number, default: 6, min: 0 },
+    weekly: { type: Number, default: 42, min: 0 },
+    monthly: { type: Number, default: 180, min: 0 }
   },
-  consistencyScore: {
-    type: Number,
-    default: 0
-  },
+  consistencyScore: { type: Number, default: 0, min: 0, max: 100 },
+  timetable: [{
+    day: { type: String, enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] },
+    subjects: [String],
+    targetHours: { type: Number, default: 6 }
+  }],
+  journeySteps: [{
+    name: {
+      type: String,
+      enum: ['Consultation', 'Goal Setting', 'Concept Building', 'PYQ Practice', 'Mock Tests', 'Weakness Analysis', 'Revision', 'GATE Success']
+    },
+    completed: { type: Boolean, default: false },
+    completedDate: { type: Date, default: null }
+  }],
   resetPasswordToken: String,
   resetPasswordExpire: Date,
-  createdAt: {
-    type: Date,
-    default: Date.now
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Hash password before saving
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
   }
 });
+
+// Compare password method
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Initialize default journey steps for new students
+userSchema.pre('save', function (next) {
+  if (this.isNew && this.role === 'student' && this.journeySteps.length === 0) {
+    this.journeySteps = [
+      'Consultation', 'Goal Setting', 'Concept Building', 'PYQ Practice',
+      'Mock Tests', 'Weakness Analysis', 'Revision', 'GATE Success'
+    ].map(name => ({ name, completed: false, completedDate: null }));
+  }
+  next();
+});
+
+// Index for fast lookups
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1, status: 1 });
 
 const User = mongoose.model('User', userSchema);
 export default User;
