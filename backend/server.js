@@ -180,7 +180,7 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Standalone Server Start ────────────────────────────────
-if (!process.env.VERCEL) {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   connectDB().then(() => {
     initCronJobs();
     app.listen(PORT, () => {
