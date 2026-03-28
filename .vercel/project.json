@@ -11,6 +11,6 @@
     "outputDirectory": "dist",
     "rootDirectory": null,
     "directoryListing": false,
-    "nodeVersion": "24.x"
+    "nodeVersion": "20.x"
   }
 }
