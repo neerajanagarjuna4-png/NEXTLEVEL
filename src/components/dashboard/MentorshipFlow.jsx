@@ -23,12 +23,13 @@ export default function MentorshipFlow() {
   }, [])
 
   const fetchSteps = async () => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
     try {
       const token = localStorage.getItem('token')
-      const res = await axios.get(`${API}/api/student/mentorship-steps`, {
+      const res = await axios.get(`${API}/api/student/journey/${user._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setSteps(res.data.steps || [])
+      setSteps(res.data.journeySteps || [])
     } catch (err) {
       // Fallback to defaults if API fails
       setSteps([

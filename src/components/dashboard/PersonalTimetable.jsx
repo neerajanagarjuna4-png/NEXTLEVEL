@@ -19,7 +19,7 @@ export default function PersonalTimetable() {
   const fetchTimetable = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await axios.get(`${API}/api/student/timetable`, {
+      const res = await axios.get(`${API}/api/student/timetable/${user._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setTimetable(res.data.timetable)
@@ -35,7 +35,7 @@ export default function PersonalTimetable() {
     setSaving(day)
     try {
       const token = localStorage.getItem('token')
-      const res = await axios.post(`${API}/api/student/timetable-complete`, {
+      const res = await axios.post(`${API}/api/student/timetable-complete/${user._id}`, {
         timetableId: timetable._id,
         day,
         completed

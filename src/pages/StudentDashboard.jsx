@@ -13,6 +13,8 @@ import RewardSystem from '../components/dashboard/RewardSystem.jsx'
 import Leaderboard from '../components/dashboard/Leaderboard.jsx'
 import PreparationTracker from '../components/dashboard/PreparationTracker.jsx'
 import DailyStudyReport from '../components/dashboard/DailyStudyReport.jsx'
+import PersonalTimetable from '../components/dashboard/PersonalTimetable.jsx'
+import MentorshipFlow from '../components/dashboard/MentorshipFlow.jsx'
 import './StudentDashboard.css'
 
 function StudentDashboard() {
@@ -68,8 +70,9 @@ function StudentDashboard() {
     { id: 'report', icon: '📋', label: 'Daily Report' },
     { id: 'tracker', icon: '🎯', label: 'Study Tracker' },
     { id: 'progress', icon: '📈', label: 'Progress' },
-    { id: 'rewards', icon: '🏆', label: 'Rewards' },
-    { id: 'leaderboard', icon: '🥇', label: 'Leaderboard' },
+    { id: 'rewards', icon: '🏆', label: 'Rewards & Leaderboard' },
+    { id: 'timetable', icon: '📅', label: 'My Timetable' },
+    { id: 'journey', icon: '🗺️', label: 'My Journey' },
   ]
 
   const quickLinks = [
@@ -245,7 +248,7 @@ function StudentDashboard() {
             </div>
           )}
 
-          {/* Rewards Tab */}
+          {/* Rewards & Leaderboard Tab */}
           {activeTab === 'rewards' && (
             <div className="widgets-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
               <div className="widget glass"><RewardSystem /></div>
@@ -253,10 +256,17 @@ function StudentDashboard() {
             </div>
           )}
 
-          {/* Leaderboard Tab */}
-          {activeTab === 'leaderboard' && (
-            <div className="widget glass">
-              <Leaderboard fullView />
+          {/* My Timetable Tab */}
+          {activeTab === 'timetable' && (
+            <div className="widget glass" style={{ maxWidth: '100%' }}>
+              <PersonalTimetable />
+            </div>
+          )}
+
+          {/* My Journey Tab */}
+          {activeTab === 'journey' && (
+            <div className="widget glass" style={{ maxWidth: '900px', margin: '0 auto' }}>
+              <MentorshipFlow />
             </div>
           )}
         </div>

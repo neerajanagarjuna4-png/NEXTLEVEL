@@ -8,7 +8,7 @@ import {
   getSyllabusProgress, updateSyllabusProgress,
   getDailyTasks, updateDailyTasks,
   getStreak, getRewards,
-  getTimetable, getJourney
+  getTimetable, markTimetableComplete, getJourney
 } from '../controllers/studentController.js';
 
 const router = Router();
@@ -42,6 +42,7 @@ router.get('/rewards/:userId', getRewards);
 
 // Timetable & Journey (read-only for students)
 router.get('/timetable/:userId', getTimetable);
+router.post('/timetable-complete/:userId', markTimetableComplete);
 router.get('/journey/:userId', getJourney);
 
 export default router;

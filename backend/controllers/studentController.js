@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
+import Timetable from '../models/Timetable.js';
 import { getGATESyllabus } from '../services/gateSyllabusData.js';
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -453,12 +454,43 @@ export const getRewards = async (req, res) => {
 // GET /api/student/timetable/:userId
 export const getTimetable = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('timetable');
-    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+    // Fetch the latest timetable from the Timetable collection
+    const timetable = await Timetable.findOne({ studentId: req.params.userId })
+      .sort({ weekStart: -1 });
 
-    res.json({ success: true, timetable: user.timetable || [] });
+    if (!timetable) {
+      return res.json({ success: true, timetable: null });
+    }
+
+    res.json({ success: true, timetable });
   } catch (err) {
     console.error('getTimetable error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// POST /api/student/timetable-complete/:userId
+export const markTimetableComplete = async (req, res) => {
+  try {
+    const { timetableId, day, completed } = req.body;
+    const timetable = await Timetable.findById(timetableId);
+
+    if (!timetable) {
+      return res.status(404).json({ error: true, message: 'Timetable not found.' });
+    }
+
+    const dayEntry = timetable.days.find(d => d.day === day);
+    if (!dayEntry) {
+      return res.status(400).json({ error: true, message: `Day '${day}' not found in timetable.` });
+    }
+
+    dayEntry.studentCompleted = completed;
+    dayEntry.studentCompletedAt = completed ? new Date() : null;
+    await timetable.save();
+
+    res.json({ success: true, timetable });
+  } catch (err) {
+    console.error('markTimetableComplete error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
   }
 };
