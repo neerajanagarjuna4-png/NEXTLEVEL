@@ -86,8 +86,8 @@ const connectDB = async () => {
   try {
     console.log('Attempting MongoDB connection...');
     const conn = await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 4000, // Fail fast (4s)
-      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 3000, // Fail fast (3s)
+      socketTimeoutMS: 5000,
       family: 4 // Force IPv4
     });
     cachedDb = conn;
@@ -97,15 +97,28 @@ const connectDB = async () => {
   } catch (err) {
     lastDbError = err.message || JSON.stringify(err);
     console.error('❌ MongoDB connection failed:', lastDbError);
+    // CRITICAL: Prevent hanging the Vercel event loop
+    await mongoose.disconnect().catch(() => {});
     return null;
   }
 };
 
 // Ensure DB is connected before any API route
 app.use('/api', async (req, res, next) => {
-  // We use a Promise.race to guarantee the middleware never hangs the process
-  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000));
+  // Promise.race to guarantee middleware never hangs the process
+  let isTimeout = false;
+  const timeoutPromise = new Promise(resolve => setTimeout(() => {
+    isTimeout = true;
+    resolve();
+  }, 4000));
+  
   await Promise.race([connectDB(), timeoutPromise]);
+  
+  if (isTimeout) {
+    lastDbError = "Connection timeout (4s) - MongoDB Atlas likely rejecting Vercel IP. Check your MongoDB Atlas Network Access whitelist (Needs 0.0.0.0/0).";
+    await mongoose.disconnect().catch(() => {});
+  }
+  
   next();
 });
 
@@ -120,6 +133,7 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime()
   });
 });
+
 
 
 // ─── API Routes ─────────────────────────────────────────────
