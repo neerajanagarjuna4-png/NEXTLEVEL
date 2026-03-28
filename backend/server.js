@@ -129,6 +129,11 @@ app.use('/api', async (req, res, next) => {
   if (isTimeout) {
     lastDbError = "Connection timeout (4s) - MongoDB Atlas likely rejecting Vercel IP. Check your MongoDB Atlas Network Access whitelist (Needs 0.0.0.0/0).";
     await mongoose.disconnect().catch(() => {});
+    return res.status(504).json({ error: true, message: "Database connection timeout. Please whitelist IPs on MongoDB Atlas." });
+  }
+
+  if (!cachedDb) {
+    return res.status(500).json({ error: true, message: "Database connection failed.", details: lastDbError });
   }
   
   next();
@@ -186,5 +191,7 @@ if (!process.env.VERCEL) {
 }
 
 // ─── Vercel Serverless Export ───────────────────────────────
-export default app;
+export default function handler(req, res) {
+  return app(req, res);
+}
 
