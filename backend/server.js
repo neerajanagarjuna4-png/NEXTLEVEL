@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import serverlessHttp from 'serverless-http';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -191,7 +192,5 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
 }
 
 // ─── Vercel Serverless Export ───────────────────────────────
-export default function handler(req, res) {
-  return app(req, res);
-}
+export default serverlessHttp(app);
 
