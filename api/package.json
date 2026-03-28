@@ -1,0 +1,30 @@
+{
+  "name": "nextlevel-backend",
+  "version": "2.0.0",
+  "description": "NEXT_LEVEL – Complete 1:1 GATE Mentorship Platform Backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "gate",
+    "mentorship",
+    "education"
+  ],
+  "author": "Bhima Sankar Sir",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
+    "serverless-http": "^4.0.0",
+    "validator": "^13.11.0"
+  }
+}
