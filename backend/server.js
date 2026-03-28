@@ -193,17 +193,14 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
 
 // ─── Vercel Serverless Export ───────────────────────────────
 export default function handler(req, res) {
-  // Intercept the request directly before it hits Express
-  if (req.url === '/api/health' || req.originalUrl === '/api/health') {
-    return res.status(200).json({
-      status: 'ok',
-      message: 'Raw Vercel handler intercept successful',
-      url: req.url,
-      mongodb_uri_exists: !!process.env.MONGODB_URI,
-    });
-  }
-  
-  // Forward to Express for all other routes
-  return app(req, res);
+  // Catch ALL traffic unconditionally to prove Vercel reaches this file
+  return res.status(200).json({
+    status: 'ok',
+    message: 'Absolute raw intercept successful - Vercel reached backend/server.js',
+    url: req.url,
+    originalUrl: req.originalUrl,
+    method: req.method,
+    mongodb_uri_exists: !!process.env.MONGODB_URI,
+  });
 }
 
