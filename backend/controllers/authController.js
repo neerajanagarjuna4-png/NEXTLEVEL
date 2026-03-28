@@ -111,7 +111,7 @@ export const login = async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: true, message: 'Server error during login.' });
+    res.status(500).json({ error: true, message: 'Server error during login.', details: err.message || JSON.stringify(err) });
   }
 };
 
