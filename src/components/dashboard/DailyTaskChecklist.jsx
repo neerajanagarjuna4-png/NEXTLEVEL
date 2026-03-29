@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { defaultDailyTasks } from '../../data/platformData.js'
+import confetti from 'canvas-confetti'
+import toast, { Toaster } from 'react-hot-toast'
 import './DailyTaskChecklist.css'
 
 function DailyTaskChecklist({ fullView }) {
@@ -31,15 +33,27 @@ function DailyTaskChecklist({ fullView }) {
 
   const toggleTask = async (index) => {
     const updated = tasks.map((t, i) => i === index ? { ...t, completed: !t.completed } : t)
+    const wasAllCompleted = tasks.every(t => t.completed)
     setTasks(updated)
     try {
       const res = await axios.post(`/api/student/daily-tasks/${user._id}`, {
         date: new Date().toISOString(),
         tasks: updated
       }, { headers: { Authorization: `Bearer ${token}` } })
+      
       setTasks(res.data.tasks || updated)
+      
+      if (res.data.allCompleted && !wasAllCompleted) {
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 }
+        })
+        toast.success("Tasks completed! Streak updated! 🔥", { position: 'bottom-right' })
+      }
     } catch (err) {
       console.error('Failed to update tasks:', err)
+      toast.error("Failed to update task")
     }
   }
 
@@ -80,6 +94,7 @@ function DailyTaskChecklist({ fullView }) {
 
   return (
     <div className={`daily-tasks-widget ${fullView ? 'full' : ''}`}>
+      <Toaster />
       <div className="tasks-header">
         <h3>📝 Today's Tasks</h3>
         <span className="tasks-progress-text">{completedCount}/{totalCount} Completed</span>

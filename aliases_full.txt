@@ -1,9 +1,0 @@
-  source                                                                  url                                                                    age    
-  nextlevel-b7nm-cxhag8yvu-nagarjunaneeraja4-7455s-projects.vercel.app    nextlevel-b7nm.vercel.app                                               2d    
-  nextlevel-b7nm-cxhag8yvu-nagarjunaneeraja4-7455s-projects.vercel.app    nextlevel-b7nm-nagarjunaneeraja4-7455s-projects.vercel.app              2d    
-  nextlevel-b7nm-cxhag8yvu-nagarjunaneeraja4-7455s-projects.vercel.app    nextlevel-b7nm-git-main-nagarjunaneeraja4-7455s-projects.vercel.app     2d    
-  nextlevel-gybba5k5h-nagarjunaneeraja4-7455s-projects.vercel.app         nextlevel-git-master-nagarjunaneeraja4-7455s-projects.vercel.app        2d    
-  nextlevel-qkx8wln4o-nagarjunaneeraja4-7455s-projects.vercel.app         nextlevel-snowy.vercel.app                                              3d    
-  nextlevel-qkx8wln4o-nagarjunaneeraja4-7455s-projects.vercel.app         nextlevel-nagarjunaneeraja4-7455s-projects.vercel.app                   3d    
-  nextlevel-fviaewvaj-nagarjunaneeraja4-7455s-projects.vercel.app         nextlevel-git-main-nagarjunaneeraja4-7455s-projects.vercel.app          3d    
-

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useSocket } from '../hooks/useSocket.js'
 import axios from 'axios'
 import { motivationQuotes } from '../data/platformData.js'
 import { getSyllabus, countAllTopics } from '../data/syllabus.js'
@@ -15,6 +16,7 @@ import PreparationTracker from '../components/dashboard/PreparationTracker.jsx'
 import DailyStudyReport from '../components/dashboard/DailyStudyReport.jsx'
 import PersonalTimetable from '../components/dashboard/PersonalTimetable.jsx'
 import MentorshipFlow from '../components/dashboard/MentorshipFlow.jsx'
+import WeeklyStudyChart from '../components/dashboard/WeeklyStudyChart.jsx'
 import './StudentDashboard.css'
 
 function StudentDashboard() {
@@ -35,6 +37,17 @@ function StudentDashboard() {
     if (user.status === 'pending') navigate('/pending-approval')
     if (user._id && token) fetchLiveStats()
   }, [user.email, user.status, navigate])
+
+  const socket = useSocket()
+  useEffect(() => {
+    if (!socket) return
+    socket.on('progress-updated', () => fetchLiveStats())
+    socket.on('syllabus-updated', () => fetchLiveStats())
+    return () => {
+      socket.off('progress-updated')
+      socket.off('syllabus-updated')
+    }
+  }, [socket])
 
   const fetchLiveStats = async () => {
     try {
@@ -184,6 +197,11 @@ function StudentDashboard() {
                     {liveStats.streak >= 7 ? '🔥 On fire!' : liveStats.streak > 0 ? '💪 Building up' : '🚀 Start today'}
                   </p>
                 </div>
+              </div>
+
+              {/* Weekly Study Chart */}
+              <div className="widgets-grid" style={{ gridTemplateColumns: '1fr' }}>
+                <div className="widget glass"><WeeklyStudyChart /></div>
               </div>
 
               {/* GATE Countdown */}

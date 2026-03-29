@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSocket } from '../hooks/useSocket.js'
 import axios from 'axios'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import TimetableEditor from '../components/mentor/TimetableEditor.jsx'
@@ -45,6 +46,20 @@ function MentorDashboard() {
       setLoading(false)
     }
   }
+
+  const socket = useSocket()
+  useEffect(() => {
+    if (!socket) return
+    socket.on('progress-updated', () => fetchStudents())
+    socket.on('syllabus-updated', () => fetchStudents())
+    socket.on('student-approved', () => fetchStudents())
+    
+    return () => {
+      socket.off('progress-updated')
+      socket.off('syllabus-updated')
+      socket.off('student-approved')
+    }
+  }, [socket])
 
   const handleApprove = async (id) => {
     try {

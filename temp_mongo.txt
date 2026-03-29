@@ -1,1 +1,0 @@
-mongodb+srv://nextlevel_admin:NextLevel2024Secure@cluster0.lfwxkw1.mongodb.net/nextlevel?retryWrites=true&w=majority

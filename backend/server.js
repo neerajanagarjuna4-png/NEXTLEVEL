@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import serverlessHttp from 'serverless-http';
+import http from 'http';
+import { Server } from 'socket.io';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -53,6 +55,31 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+  }
+});
+
+// Expose socket.io to routes
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('🔗 Client connected via Socket.io:', socket.id);
+  
+  socket.on('join-student-room', (roomId) => {
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('🔗 Client disconnected:', socket.id);
+  });
+});
 
 // ─── Body Parsing ───────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -184,14 +211,12 @@ app.use((err, req, res, next) => {
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   connectDB().then(() => {
     initCronJobs();
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`🚀 NEXT_LEVEL Backend running on port ${PORT}`);
       console.log(`📡 API: http://localhost:${PORT}/api/health`);
     });
   });
 }
 
-// ─── Note: Vercel deployment uses api/index.js, not this file ───
-// This file is for local development only.
-// Run with: cd backend && node server.js
+export default app;
 

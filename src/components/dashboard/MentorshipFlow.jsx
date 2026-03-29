@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { useSocket } from '../../hooks/useSocket.js'
 
 const API = import.meta.env.VITE_API_URL || ''
 
@@ -18,9 +19,22 @@ export default function MentorshipFlow() {
   const [steps, setSteps] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const socket = useSocket()
+
   useEffect(() => {
     fetchSteps()
   }, [])
+
+  useEffect(() => {
+    if (!socket) return
+    socket.on('journey-updated', (data) => {
+      // Re-fetch steps if updated by mentor
+      fetchSteps()
+    })
+    return () => {
+      socket.off('journey-updated')
+    }
+  }, [socket])
 
   const fetchSteps = async () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}')

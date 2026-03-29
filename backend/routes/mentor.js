@@ -80,6 +80,11 @@ router.post('/step/:userId', async (req, res) => {
       await doc.save();
     }
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('journey-updated', { userId: req.params.userId, steps: doc.steps });
+    }
+
     res.json({ success: true, steps: doc.steps });
   } catch (err) {
     console.error('POST /mentor/step/:id error:', err);

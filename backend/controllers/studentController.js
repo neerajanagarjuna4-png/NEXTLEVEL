@@ -147,6 +147,12 @@ export const createStudyReport = async (req, res) => {
     // Update streak logic
     await updateStreakAfterReport(userId, reportDate);
 
+    // Emit progress-updated to all connected clients (including mentors)
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('progress-updated', { userId, report });
+    }
+
     res.status(201).json({ success: true, report });
   } catch (err) {
     if (err.code === 11000) {
@@ -260,6 +266,12 @@ export const updateSyllabusProgress = async (req, res) => {
 
     const totalSubtopics = progress.progress.length;
     const completedSubtopics = progress.progress.filter(p => p.completed).length;
+
+    // Emit syllabus-updated
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('syllabus-updated', { userId, totalSubtopics, completedSubtopics });
+    }
 
     res.json({
       success: true,

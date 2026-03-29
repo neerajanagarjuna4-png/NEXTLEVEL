@@ -29,6 +29,12 @@ export const approveStudent = async (req, res) => {
     user.status = 'approved';
     await user.save();
 
+    // Emit approval event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('student-approved', { userId: user._id, name: user.name });
+    }
+
     // Send approval email (non-blocking)
     sendApprovalEmail({ name: user.name, email: user.email }).catch(err =>
       console.error('Approval email failed:', err.message)
