@@ -3,10 +3,10 @@ import toast from 'react-hot-toast';
 
 export let socket = null;
 
-// Prefer configured socket URL, otherwise point to the Render backend hostname.
+// Prefer configured socket URL, otherwise point to the canonical Render backend hostname.
 const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL && String(import.meta.env.VITE_SOCKET_URL).trim())
   ? String(import.meta.env.VITE_SOCKET_URL).replace(/\/$/, '')
-  : 'https://nextlevel-0xw2.onrender.com';
+  : 'https://nextlevel-backend.onrender.com';
 
 function createSocket() {
   return io(SOCKET_URL, {

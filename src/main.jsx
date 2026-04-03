@@ -16,7 +16,7 @@ import { startKeepAlive } from './utils/keepAlive'
   const rawUrl = import.meta.env.VITE_API_URL || '';
   const baseHost = (rawUrl && String(rawUrl).trim())
     ? String(rawUrl).replace(/\/api\/?$/i, '')
-    : 'https://nextlevel-0xw2.onrender.com';
+    : 'https://nextlevel-backend.onrender.com';
   axios.defaults.baseURL = baseHost;
 }
 

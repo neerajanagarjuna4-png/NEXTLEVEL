@@ -3,9 +3,10 @@ import toast from 'react-hot-toast';
 
 // Normalize base host: strip any trailing `/api` so callers can use `/api/...` paths
 const rawUrl = import.meta.env.VITE_API_URL || '';
+// Default to the canonical Render backend hostname if Vite envs are missing.
 const baseHost = (rawUrl && String(rawUrl).trim())
   ? String(rawUrl).replace(/\/api\/?$/i, '')
-  : 'https://nextlevel-0xw2.onrender.com';
+  : 'https://nextlevel-backend.onrender.com';
 
 const api = axios.create({
   baseURL: baseHost

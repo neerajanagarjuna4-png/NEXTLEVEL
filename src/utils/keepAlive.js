@@ -1,4 +1,7 @@
-const BACKEND_URL = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/api\/?$/, '');
+// Prefer VITE_API_URL when provided; otherwise use the canonical Render backend.
+const BACKEND_URL = ((import.meta.env.VITE_API_URL && String(import.meta.env.VITE_API_URL).trim())
+  ? String(import.meta.env.VITE_API_URL)
+  : 'https://nextlevel-backend.onrender.com').replace(/\/api\/?$/, '');
 
 export const startKeepAlive = () => {
   if (!BACKEND_URL) return;
