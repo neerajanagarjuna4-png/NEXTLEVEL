@@ -15,6 +15,8 @@ Required environment variables (set these on Render or your host):
 - `MENTOR_MASTER_PASSWORD` — master password used to provision mentor accounts
 - SMTP: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`, `MENTOR_EMAIL` — required if you want email invites/notifications
 
+- `POSTGRES_URL` — optional Postgres connection string for analytics or integrations (set if you provision a Postgres DB). Example: `postgresql://user:pass@host:5432/nextlevel?sslmode=require`
+
 Optional but recommended:
 - `SENTRY_DSN`, `REDIS_URL`, `STRIPE_SECRET_KEY`, `CLOUDINARY_URL`
 
