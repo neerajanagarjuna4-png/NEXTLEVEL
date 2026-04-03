@@ -140,6 +140,21 @@ io.on('connection', (socket) => {
   });
 });
 
+// Socket authentication middleware: attach user info when token present
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth && socket.handshake.auth.token;
+    if (!token) return next();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id || decoded.userId || decoded._id || null;
+    socket.userRole = decoded.role || null;
+    return next();
+  } catch (err) {
+    // don't fail connection for invalid token; allow anonymous sockets if needed
+    return next();
+  }
+});
+
 // ─── Body Parsing ───────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -296,8 +311,10 @@ app.use('/api/reportcard', reportcardRoutes);
 app.use('/api/chat', chatRoutes);
 
 // ─── 404 Handler for API ────────────────────────────────────
-app.use('/api/{*path}', (req, res) => {
-  res.status(404).json({ error: true, message: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+app.use('/api', (req, res) => {
+  if (!res.headersSent) {
+    res.status(404).json({ error: true, message: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+  }
 });
 
 // ─── Global Error Handler ───────────────────────────────────
@@ -328,13 +345,18 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Standalone Server Start ────────────────────────────────
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+// Start the HTTP server for non-serverless environments (e.g. Render).
+// Vercel sets `VERCEL` in the environment; when present we run as serverless.
+if (!process.env.VERCEL) {
   connectDB().then(() => {
     initCronJobs(io);
     httpServer.listen(PORT, () => {
       console.log(`🚀 NEXT_LEVEL Backend running on port ${PORT}`);
       console.log(`📡 API: http://localhost:${PORT}/api/health`);
     });
+  }).catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
   });
 }
 
