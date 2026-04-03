@@ -293,6 +293,7 @@ import trackerRoutes from './routes/tracker.js';
 import focusRoutes from './routes/focus.js';
 import reportcardRoutes from './routes/reportcard.js';
 import chatRoutes from './routes/chat.js';
+import devRoutes from './routes/dev.js';
 
 app.use('/api/planner', plannerRoutes);
 app.use('/api/flashcards', flashcardRoutes);
@@ -309,6 +310,9 @@ app.use('/api/stories', storiesRoutes);
 app.use('/api/focus', focusRoutes);
 app.use('/api/reportcard', reportcardRoutes);
 app.use('/api/chat', chatRoutes);
+
+// Development/admin routes (protected by secret)
+app.use('/api/dev', devRoutes);
 
 // ─── 404 Handler for API ────────────────────────────────────
 app.use('/api', (req, res) => {
