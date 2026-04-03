@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema({
     monthly: { type: Number, default: 180, min: 0 }
   },
   consistencyScore: { type: Number, default: 0, min: 0, max: 100 },
+  // Gamification: points and tokens
+  points: { type: Number, default: 0, min: 0 },
+  streakFreezeTokens: { type: Number, default: 0, min: 0 },
   timetable: [{
     day: { type: String, enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] },
     subjects: [String],
@@ -85,7 +88,7 @@ userSchema.pre('save', function (next) {
 });
 
 // Index for fast lookups
-userSchema.index({ email: 1 });
+// `unique: true` on the `email` field already creates an index, avoid duplicate index declaration
 userSchema.index({ role: 1, status: 1 });
 
 const User = mongoose.model('User', userSchema);

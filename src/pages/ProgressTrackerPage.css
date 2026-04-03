@@ -1,0 +1,5 @@
+.progress-tracker-page { padding-bottom: 40px; }
+.progress-tracker-page h2 { margin: 0 0 8px 0; }
+.progress-tracker-page table { width: 100%; border-collapse: collapse; }
+.progress-tracker-page th, .progress-tracker-page td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); }
+.progress-tracker-page .card { padding: 12px; }

@@ -9,6 +9,7 @@ import {
   getDailyTasks, updateDailyTasks,
   getStreak, getRewards,
   getTimetable, markTimetableComplete, getJourney
+  , buyFreezeToken, getTokens
 } from '../controllers/studentController.js';
 
 const router = Router();
@@ -39,6 +40,8 @@ router.post('/daily-tasks/:userId', updateDailyTasks);
 // Streak & Rewards
 router.get('/streak/:userId', getStreak);
 router.get('/rewards/:userId', getRewards);
+router.post('/tokens/buy/:userId', buyFreezeToken);
+router.get('/tokens/:userId', getTokens);
 
 // Timetable & Journey (read-only for students)
 router.get('/timetable/:userId', getTimetable);

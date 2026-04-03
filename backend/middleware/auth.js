@@ -2,9 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 /**
- * JWT authentication middleware.
- * Extracts token from Authorization header, verifies it,
- * and attaches the user to req.user.
+ * Core JWT authentication middleware. Use as `protect` in routes.
  */
 export const requireAuth = async (req, res, next) => {
   try {
@@ -35,4 +33,21 @@ export const requireAuth = async (req, res, next) => {
     }
     return res.status(500).json({ error: true, message: 'Authentication error.' });
   }
+};
+
+// Backwards-compatible alias used across routes
+export const protect = requireAuth;
+
+// Mentor-only middleware
+export const mentorOnly = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: true, message: 'Authentication required.' });
+  if (req.user.role !== 'mentor') return res.status(403).json({ error: true, message: 'Mentor access required.' });
+  next();
+};
+
+// Student-only middleware
+export const studentOnly = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: true, message: 'Authentication required.' });
+  if (req.user.role !== 'student') return res.status(403).json({ error: true, message: 'Student access required.' });
+  next();
 };

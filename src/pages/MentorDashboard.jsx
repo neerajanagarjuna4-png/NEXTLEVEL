@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import TimetableEditor from '../components/mentor/TimetableEditor.jsx'
 import './MentorDashboard.css'
@@ -19,6 +20,10 @@ function MentorDashboard() {
   const [detailTab, setDetailTab] = useState('reports')
   const [stepsData, setStepsData] = useState([])
   const [stepsSaving, setStepsSaving] = useState(false)
+  const [viewTab, setViewTab] = useState('students') // 'pending' | 'students' | 'stories' | 'feed'
+  const [stories, setStories] = useState([])
+  const [feed, setFeed] = useState([])
+  const [feedbacks, setFeedbacks] = useState([])
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token')
@@ -50,66 +55,98 @@ function MentorDashboard() {
   const socket = useSocket()
   useEffect(() => {
     if (!socket) return
+    // Refresh student list on common events
     socket.on('progress-updated', () => fetchStudents())
     socket.on('syllabus-updated', () => fetchStudents())
     socket.on('student-approved', () => fetchStudents())
-    
+
+    // Live feed items
+    const pushFeed = (item) => setFeed(prev => [{ ...item, ts: Date.now() }, ...prev].slice(0, 200))
+
+    socket.on('new-story-pending', (payload) => pushFeed({ type: 'story-pending', text: `New story pending: ${payload.title}`, payload }))
+    socket.on('story-approved', (payload) => pushFeed({ type: 'story-approved', text: `Story approved (${payload.storyId})`, payload }))
+    socket.on('progress-updated', (payload) => pushFeed({ type: 'progress', text: `Progress updated by ${payload.userId}`, payload }))
+    socket.on('journey-updated', (payload) => pushFeed({ type: 'journey', text: `Journey updated for ${payload.userId}`, payload }))
+    socket.on('mentor_feedback', (payload) => pushFeed({ type: 'feedback', text: `New mentor feedback for ${payload.feedbackId}`, payload }))
+
     return () => {
       socket.off('progress-updated')
       socket.off('syllabus-updated')
       socket.off('student-approved')
+      socket.off('new-story-pending')
+      socket.off('story-approved')
+      socket.off('journey-updated')
+      socket.off('mentor_feedback')
     }
   }, [socket])
 
-  const handleApprove = async (id) => {
+  useEffect(() => {
+    if (viewTab === 'stories') fetchStories()
+  }, [viewTab])
+
+  const fetchStudentTracker = async (studentId) => {
     try {
-      await axios.put(`${API}/api/mentor/students/${id}/approve`, {}, getAuthHeaders())
-      setStudents(prev => prev.map(s => s._id === id ? { ...s, status: 'approved' } : s))
-    } catch (error) {
-      console.error('Approve error:', error)
-      setStudents(prev => prev.map(s => (s._id === id || s.id === id) ? { ...s, status: 'approved' } : s))
+      const res = await axios.get(`${API}/api/mentor/student/${studentId}/tracker`, getAuthHeaders())
+      setSelectedStudentData(prev => ({ ...(prev||{}), trackerLogs: res.data.logs || [] }))
+    } catch (err) {
+      console.error('Error fetching tracker logs', err)
+      setSelectedStudentData(prev => ({ ...(prev||{}), trackerLogs: [] }))
     }
   }
 
-  const handleReject = async (id) => {
+  const fetchFeedback = async (studentId) => {
     try {
-      await axios.put(`${API}/api/mentor/students/${id}/reject`, {}, getAuthHeaders())
-      setStudents(prev => prev.map(s => s._id === id ? { ...s, status: 'rejected' } : s))
-    } catch (error) {
-      console.error('Reject error:', error)
-      setStudents(prev => prev.map(s => (s._id === id || s.id === id) ? { ...s, status: 'rejected' } : s))
+      const res = await axios.get(`${API}/api/feedback/${studentId}`, getAuthHeaders())
+      setSelectedStudentData(prev => ({ ...(prev||{}), feedbacks: res.data.feedback || [] }))
+    } catch (err) {
+      console.error('Error fetching feedback', err)
     }
   }
 
-  const handleStudentClick = async (student) => {
-    setSelectedStudent(student)
-    setDetailTab('reports')
-    setStepsData([])
-    setSelectedStudentData(null)
+  const handleAddRemark = async (log) => {
+    const text = window.prompt('Enter mentor remark for this tracker entry:')
+    if (!text) return
     try {
-      const id = student._id || student.id
-      const detailRes = await axios.get(`${API}/api/mentor/student/${id}/detail`, getAuthHeaders())
-      const data = detailRes.data
-      setSelectedStudentData({
-        reports: data.reports || [],
-        metrics: { 
-          streak: data.student?.streak, 
-          badges: data.student?.badges, 
-          consistencyScore: data.student?.consistencyScore 
-        },
-        timetable: data.timetable || null,
-        syllabusProgress: data.syllabusProgress || []
-      })
-      setStepsData(data.steps || [])
-    } catch (error) {
-      console.error('Error fetching student data:', error)
-      try {
-        const id = student._id || student.id
-        const reportsRes = await axios.get(`${API}/api/mentor/student/${id}/reports`, getAuthHeaders())
-        setSelectedStudentData({ reports: reportsRes.data, metrics: {}, timetable: null })
-      } catch (e) {
-        setSelectedStudentData({ reports: [], metrics: {}, timetable: null })
-      }
+      const studentId = selectedStudent._id || selectedStudent.id
+      await axios.post(`${API}/api/feedback`, { studentId, text: `Remark (${new Date(log.date).toLocaleDateString()}): ${text}`, type: 'remark', isPublic: false }, getAuthHeaders())
+      toast.success('Bhima Sir added a remark!')
+      fetchFeedback(studentId)
+    } catch (err) {
+      console.error('Add remark error', err)
+      toast.error('Failed to add remark')
+    }
+  }
+
+  const fetchStories = async () => {
+    try {
+      const res = await axios.get(`${API}/api/stories`, getAuthHeaders())
+      setStories(res.data.stories || [])
+    } catch (err) {
+      console.error('Error fetching stories', err)
+      setStories([])
+    }
+  }
+
+  const approveStory = async (id) => {
+    try {
+      await axios.put(`${API}/api/stories/${id}/approve`, {}, getAuthHeaders())
+      setStories(prev => prev.filter(s => s._id !== id && s.id !== id))
+      toast.success('Your story is live! 🎉')
+    } catch (err) {
+      console.error('Approve story error', err)
+      toast.error('Failed to approve story')
+    }
+  }
+
+  const addFeedback = async (text) => {
+    if (!selectedStudent || !text) return
+    try {
+      const studentId = selectedStudent._id || selectedStudent.id
+      await axios.post(`${API}/api/feedback`, { studentId, text, type: 'mentor', isPublic: true }, getAuthHeaders())
+      fetchFeedback(studentId)
+    } catch (err) {
+      console.error('Add feedback error', err)
+      alert('Failed to send feedback')
     }
   }
 
@@ -120,10 +157,10 @@ function MentorDashboard() {
       const id = selectedStudent._id || selectedStudent.id
       const res = await axios.post(`${API}/api/mentor/step/${id}`, { steps: stepsData }, getAuthHeaders())
       setStepsData(res.data.steps || stepsData)
-      alert('Steps updated successfully!')
+      toast.success('Steps updated successfully!')
     } catch (err) {
       console.error('Save steps error:', err)
-      alert('Failed to update steps')
+        toast.error('Failed to update steps')
     } finally {
       setStepsSaving(false)
     }
@@ -193,16 +230,94 @@ function MentorDashboard() {
           </div>
 
           <div className="modal-sub-tabs">
-            {[['reports','📋 Reports'],['timetable','📅 Timetable'],['steps','🗺️ Steps']].map(([id,label]) => (
+            {[[ 'overview','👤 Overview' ],[ 'tracker','📊 Tracker' ],[ 'reports','📋 Reports' ],[ 'syllabus','📚 Syllabus' ],[ 'feedback','✉️ Feedback' ],['timetable','📅 Timetable'],['steps','🗺️ Steps']].map(([id,label]) => (
               <button 
                 key={id} 
                 className={`modal-sub-tab ${detailTab === id ? 'active' : ''}`} 
-                onClick={() => setDetailTab(id)}
+                onClick={() => { setDetailTab(id); if (id === 'tracker') fetchStudentTracker(s._id || s.id); if (id === 'feedback') fetchFeedback(s._id || s.id) }}
               >
                 {label}
               </button>
             ))}
           </div>
+
+          {detailTab === 'overview' && (
+            <div className="modal-section">
+              <h3>Overview</h3>
+              <p className="modal-muted">High level metrics and quick links.</p>
+              <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+                <div className="modal-stat" style={{ padding: 12 }}>
+                  <div className="ms-num">{metrics.streak || 0}</div>
+                  <div className="ms-label">Streak</div>
+                </div>
+                <div className="modal-stat" style={{ padding: 12 }}>
+                  <div className="ms-num">{metrics.consistencyScore || 0}%</div>
+                  <div className="ms-label">Consistency</div>
+                </div>
+                <div className="modal-stat" style={{ padding: 12 }}>
+                  <div className="ms-num">{reports.length}</div>
+                  <div className="ms-label">Reports</div>
+                </div>
+                <div className="modal-stat" style={{ padding: 12 }}>
+                  <div className="ms-num">{data.syllabusPercentage ?? 0}%</div>
+                  <div className="ms-label">Syllabus</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {detailTab === 'tracker' && (
+            <div className="modal-section">
+              <h3>📊 Read-only Tracker</h3>
+              <p className="modal-muted">View daily tracker logs. Use "Add Remark" to send mentor feedback for a row.</p>
+              {(!data.trackerLogs || data.trackerLogs.length === 0) && <p className="modal-muted">No tracker logs available.</p>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                {(data.trackerLogs || []).map((log, idx) => (
+                  <div key={idx} style={{ border: '1px solid #E2E8F0', padding: 12, borderRadius: 10, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{new Date(log.date).toLocaleDateString()}</div>
+                      <div style={{ color: '#64748B', fontSize: '0.9rem' }}>{(log.entries || []).map(e => `${e.subject}: ${e.hours}h`).join(' • ')}</div>
+                      {log.mentorRemarks && <div style={{ marginTop:8, color: '#065f46' }}>Mentor: {log.mentorRemarks}</div>}
+                    </div>
+                    <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                      <button className="steps-save-btn" onClick={() => handleAddRemark(log)}>Add Remark</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detailTab === 'feedback' && (
+            <div className="modal-section">
+              <h3>✉️ Mentor Feedback</h3>
+              <p className="modal-muted">Send guidance or quick remarks to the student.</p>
+              <div style={{ marginTop: 12 }}>
+                <textarea id="mentor-feedback-text" rows={4} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} placeholder="Write feedback..." />
+                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                  <button className="steps-save-btn" onClick={() => { const t = document.getElementById('mentor-feedback-text').value; addFeedback(t); document.getElementById('mentor-feedback-text').value=''; }}>Send Feedback</button>
+                  <button className="m-action-btn secondary" onClick={() => fetchFeedback(s._id || s.id)}>Refresh</button>
+                </div>
+
+                <div style={{ marginTop: 14 }}>
+                  {(data.feedbacks || []).map((fb, i) => (
+                    <div key={i} style={{ border: '1px solid #F1F5F9', padding: 10, borderRadius: 8, marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700 }}>{fb.mentorId?.name || 'Mentor'}</div>
+                      <div style={{ color: '#64748B', fontSize: '0.9rem' }}>{fb.text}</div>
+                      <div style={{ color: '#94A3B8', fontSize: '0.8rem', marginTop: 6 }}>{new Date(fb.createdAt).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {detailTab === 'syllabus' && (
+            <div className="modal-section">
+              <h3>📚 Syllabus Progress</h3>
+              <p className="modal-muted">Completed: {data.syllabusPercentage ?? 0}%</p>
+            </div>
+          )}
 
           {detailTab === 'reports' && (
             <div className="modal-content-area">

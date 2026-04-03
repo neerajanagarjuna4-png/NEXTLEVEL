@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import {
   getPendingStudents, approveStudent, rejectStudent,
-  getApprovedStudents, getStudentDetail,
+  getApprovedStudents, getStudentDetail, getStudentTracker,
   setTimetable, updateJourneyStep
 } from '../controllers/mentorController.js';
 
@@ -40,6 +40,9 @@ router.post('/reject-student/:userId', rejectStudent);
 // Frontend calls GET /api/mentor/student/:id/detail
 router.get('/student/:userId/detail', getStudentDetail);
 router.get('/student-detail/:userId', getStudentDetail); // alias
+
+// ─── Student tracker logs (mentor view) ─────────────────────
+router.get('/student/:userId/tracker', getStudentTracker);
 
 // ─── Student reports (used as fallback in frontend) ─────────
 router.get('/student/:userId/reports', async (req, res) => {

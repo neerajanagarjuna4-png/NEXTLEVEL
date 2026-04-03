@@ -1,24 +1,36 @@
 import express from 'express';
 import { protect, mentorOnly } from '../middleware/auth.js';
 import {
-  submitStory,
-  getApprovedStories,
-  getPendingStories,
+  createStory,
+  getStories,
+  getStory,
+  toggleLike,
+  addComment,
+  deleteComment,
   approveStory,
-  rejectStory
+  deleteStory
 } from '../controllers/storyController.js';
 
 const router = express.Router();
 
-// Public
-router.get('/approved', getApprovedStories);
+// Public: list approved (but getStories handles role logic)
+router.get('/', protect, getStories);
+router.get('/:storyId', protect, getStory);
 
-// Student
-router.post('/', protect, submitStory);
+// Create story (student)
+router.post('/', protect, createStory);
 
-// Mentor
-router.get('/pending', protect, mentorOnly, getPendingStories);
-router.put('/:id/approve', protect, mentorOnly, approveStory);
-router.put('/:id/reject', protect, mentorOnly, rejectStory);
+// Like toggle
+router.put('/:storyId/like', protect, toggleLike);
+
+// Comments
+router.post('/:storyId/comment', protect, addComment);
+router.delete('/:storyId/comment/:commentId', protect, deleteComment);
+
+// Mentor actions
+router.put('/:storyId/approve', protect, mentorOnly, approveStory);
+
+// Delete (owner or mentor)
+router.delete('/:storyId', protect, deleteStory);
 
 export default router;

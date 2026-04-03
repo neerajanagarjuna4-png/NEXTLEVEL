@@ -4,6 +4,7 @@ import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
 import Timetable from '../models/Timetable.js';
+import Notification from '../models/Notification.js';
 import { getGATESyllabus } from '../services/gateSyllabusData.js';
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -151,6 +152,19 @@ export const createStudyReport = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.emit('progress-updated', { userId, report });
+    }
+
+    // Award points for submitting a study report
+    try {
+      const user = await User.findById(userId);
+      if (user) {
+        user.points = (user.points || 0) + 20; // reward for report
+        await user.save();
+        await Notification.create({ userId: user._id, type: 'points', title: 'Points earned', message: 'You earned 20 points for submitting a study report.' });
+        if (io) io.to(`student_${userId}`).emit('points-updated', { userId, points: user.points });
+      }
+    } catch (e) {
+      console.error('award points after report error:', e);
     }
 
     res.status(201).json({ success: true, report });
@@ -304,13 +318,18 @@ export const getDailyTasks = async (req, res) => {
 
     const allCompleted = dailyTask.tasks.every(t => t.completed);
 
+    // Include current points & streak for convenience
+    const user = await User.findById(userId).select('points streak');
+
     res.json({
       success: true,
       date: taskDate,
       tasks: dailyTask.tasks,
       allCompleted,
       completedCount: dailyTask.tasks.filter(t => t.completed).length,
-      totalCount: dailyTask.tasks.length
+      totalCount: dailyTask.tasks.length,
+      points: user?.points || 0,
+      streak: user?.streak || 0
     });
   } catch (err) {
     console.error('getDailyTasks error:', err);
@@ -333,6 +352,10 @@ export const updateDailyTasks = async (req, res) => {
       });
     }
 
+    // Compute previous completion stats
+    const previousCompletedCount = dailyTask.tasks.filter(t => t.completed).length;
+    const previousAllCompleted = dailyTask.tasks.every(t => t.completed);
+
     // Update task completion status
     if (Array.isArray(tasks)) {
       tasks.forEach(update => {
@@ -345,8 +368,39 @@ export const updateDailyTasks = async (req, res) => {
 
     // Check if this triggers streak
     const allCompleted = dailyTask.tasks.every(t => t.completed);
-    if (allCompleted) {
+    if (allCompleted && !previousAllCompleted) {
       await updateStreakAfterReport(userId, taskDate);
+    }
+
+    // Award points for newly completed tasks
+    try {
+      const newCompletedCount = dailyTask.tasks.filter(t => t.completed).length;
+      const delta = Math.max(0, newCompletedCount - previousCompletedCount);
+      const io = req.app.get('io');
+      if (delta > 0) {
+        const user = await User.findById(userId);
+        if (user) {
+          const earned = delta * 10;
+          user.points = (user.points || 0) + earned;
+          await user.save();
+          await Notification.create({ userId: user._id, type: 'points', title: 'Points earned', message: `You earned ${earned} points for completing tasks.` });
+          if (io) io.to(`student_${userId}`).emit('points-updated', { userId, points: user.points });
+        }
+      }
+
+      // Bonus for completing all tasks
+      if (allCompleted && !previousAllCompleted) {
+        const user = await User.findById(userId);
+        if (user) {
+          const bonus = 50;
+          user.points = (user.points || 0) + bonus;
+          await user.save();
+          await Notification.create({ userId: user._id, type: 'points', title: 'Daily bonus', message: `You earned ${bonus} bonus points for completing all tasks.` });
+          if (io) io.to(`student_${userId}`).emit('points-updated', { userId, points: user.points });
+        }
+      }
+    } catch (e) {
+      console.error('Error awarding points for tasks:', e);
     }
 
     res.json({
@@ -442,7 +496,7 @@ export const getStreak = async (req, res) => {
 // GET /api/student/rewards/:userId
 export const getRewards = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('streak badges consistencyScore');
+    const user = await User.findById(req.params.userId).select('streak badges consistencyScore points streakFreezeTokens');
     if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
 
     const milestones = [7, 14, 30, 60, 100];
@@ -454,6 +508,8 @@ export const getRewards = async (req, res) => {
       streak: user.streak,
       badges: user.badges,
       consistencyScore: user.consistencyScore,
+      points: user.points || 0,
+      streakFreezeTokens: user.streakFreezeTokens || 0,
       nextMilestone,
       daysToNextMilestone: daysToNext
     });
@@ -524,6 +580,45 @@ export const getJourney = async (req, res) => {
     });
   } catch (err) {
     console.error('getJourney error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// POST /api/student/tokens/buy/:userId
+export const buyFreezeToken = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const price = 100; // points per token
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+    if ((user.points || 0) < price) return res.status(400).json({ error: true, message: 'Not enough points to buy a token.' });
+
+    user.points = (user.points || 0) - price;
+    user.streakFreezeTokens = (user.streakFreezeTokens || 0) + 1;
+    await user.save();
+
+    // Notify student
+    try { await Notification.create({ userId: user._id, type: 'token_purchase', title: 'Streak Freeze Token', message: `Purchased 1 Streak Freeze Token for ${price} points.` }); } catch (e) { console.error(e); }
+
+    const io = req.app.get('io');
+    if (io) io.to(`student_${userId}`).emit('tokens-updated', { userId, tokens: user.streakFreezeTokens, points: user.points });
+
+    res.json({ success: true, tokens: user.streakFreezeTokens, points: user.points });
+  } catch (err) {
+    console.error('buyFreezeToken error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// GET /api/student/tokens/:userId
+export const getTokens = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select('streakFreezeTokens points');
+    if (!user) return res.status(404).json({ error: true, message: 'Student not found.' });
+    res.json({ success: true, tokens: user.streakFreezeTokens || 0, points: user.points || 0 });
+  } catch (err) {
+    console.error('getTokens error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
   }
 };

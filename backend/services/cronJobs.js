@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
+import Notification from '../models/Notification.js';
 import { refreshLeaderboard } from '../controllers/leaderboardController.js';
 
 /**
@@ -51,7 +52,7 @@ export async function recalculateConsistencyScores() {
  * Check and reset streaks for students who missed a day.
  * A missed day = no study report for yesterday.
  */
-export async function checkAndResetStreaks() {
+export async function checkAndResetStreaks(io) {
   try {
     const students = await User.find({ role: 'student', status: 'approved', streak: { $gt: 0 } });
     const now = new Date();
@@ -76,11 +77,29 @@ export async function checkAndResetStreaks() {
             date: { $gte: yesterday, $lte: yesterdayEnd }
           });
 
-          if (!yesterdayReport) {
-            student.streak = 0;
-            await student.save();
-            reset++;
-          }
+            if (!yesterdayReport) {
+              // If student has a streak-freeze token, consume it and preserve streak
+              if (student.streakFreezeTokens && student.streakFreezeTokens > 0) {
+                student.streakFreezeTokens = Math.max(0, student.streakFreezeTokens - 1);
+                // Advance their lastActiveDate to yesterday to preserve continuity
+                student.lastActiveDate = yesterday;
+                await student.save();
+
+                // Create notification and emit socket event
+                try {
+                  await Notification.create({ userId: student._id, type: 'streak_token_used', title: 'Streak preserved', message: 'A Streak Freeze Token was automatically used to preserve your streak.' });
+                  if (io) {
+                    io.to(`student_${student._id}`).emit('streak-token-used', { userId: student._id, tokens: student.streakFreezeTokens });
+                  }
+                } catch (e) {
+                  console.error('Error creating streak token notification:', e);
+                }
+              } else {
+                student.streak = 0;
+                await student.save();
+                reset++;
+              }
+            }
         }
       }
     }
@@ -95,7 +114,7 @@ export async function checkAndResetStreaks() {
  * Initialize cron jobs.
  * Uses dynamic import for node-cron (optional dependency).
  */
-export async function initCronJobs() {
+export async function initCronJobs(io) {
   try {
     const cron = await import('node-cron');
 
@@ -103,7 +122,7 @@ export async function initCronJobs() {
     cron.default.schedule('0 0 * * *', async () => {
       console.log('⏰ Running midnight cron: consistency + streaks');
       await recalculateConsistencyScores();
-      await checkAndResetStreaks();
+      await checkAndResetStreaks(io);
     }, { timezone: 'Asia/Kolkata' });
 
     // Every hour: refresh leaderboard

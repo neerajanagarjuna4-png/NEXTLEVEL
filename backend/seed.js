@@ -14,12 +14,50 @@ import User from './models/User.js';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/nextlevel';
+const mongooseOptions = { serverSelectionTimeoutMS: 10000, socketTimeoutMS: 5000, family: 4 };
+
+async function createConnection() {
+  const tryConnect = async (uri) => {
+    try {
+      await mongoose.connect(uri, mongooseOptions);
+      console.log('Connected to MongoDB at', uri);
+      return { ok: true };
+    } catch (err) {
+      console.warn('Connection failed to', uri, err?.message || err);
+      return { ok: false, error: err };
+    }
+  };
+
+  // 1) Try environment URI
+  if (process.env.MONGODB_URI) {
+    const r = await tryConnect(process.env.MONGODB_URI);
+    if (r.ok) return null;
+  }
+
+  // 2) Try local MongoDB
+  const localUri = 'mongodb://127.0.0.1:27017/nextlevel';
+  const lr = await tryConnect(localUri);
+  if (lr.ok) return null;
+
+  // 3) Fallback to in-memory server (dev only)
+  try {
+    console.log('Starting in-memory MongoDB for seeding (mongodb-memory-server)');
+    const { MongoMemoryServer } = await import('mongodb-memory-server');
+    const mongod = await MongoMemoryServer.create();
+    const memUri = mongod.getUri();
+    const mr = await tryConnect(memUri);
+    if (mr.ok) return mongod;
+    throw new Error('In-memory MongoDB failed to start');
+  } catch (err) {
+    console.error('All MongoDB connection attempts failed:', err);
+    throw err;
+  }
+}
 
 async function seed() {
+  let mongod = null;
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB');
+    mongod = await createConnection();
 
     // Create Mentor account (Bhima Sankar Sir)
     const mentorEmail = 'sankar.bhima@gmail.com';
@@ -61,6 +99,11 @@ async function seed() {
     }
 
     console.log('\n🎉 Seed complete!');
+    if (mongod) {
+      // If using in-memory DB, keep process running briefly to allow inspection if needed, then exit
+      await mongoose.disconnect().catch(() => {});
+      try { await mongod.stop(); } catch(e) {}
+    }
     process.exit(0);
   } catch (error) {
     console.error('Seed error:', error);

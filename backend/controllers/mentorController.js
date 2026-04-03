@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import StudyReport from '../models/StudyReport.js';
 import SyllabusProgress from '../models/SyllabusProgress.js';
 import DailyTask from '../models/DailyTask.js';
+import DailyTrackerLog from '../models/DailyTrackerLog.js';
 import { sendApprovalEmail } from '../services/emailService.js';
 
 // ─── GET /api/mentor/pending-students ──────────────────────
@@ -209,6 +210,17 @@ export const getStudentDetail = async (req, res) => {
   } catch (err) {
     console.error('getStudentDetail error:', err);
     res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// ─── GET /api/mentor/student/:userId/tracker ───────────────
+export const getStudentTracker = async (req, res) => {
+  try {
+    const logs = await DailyTrackerLog.find({ userId: req.params.userId }).sort({ date: -1 });
+    res.json({ success: true, logs });
+  } catch (err) {
+    console.error('getStudentTracker error:', err);
+    res.status(500).json({ error: true, message: 'Server error fetching tracker logs.' });
   }
 };
 

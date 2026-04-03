@@ -1,0 +1,111 @@
+import FlashcardProgress from '../models/FlashcardProgress.js';
+import flashcardsData from '../data/flashcardsData.js';
+
+const today = () => {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+};
+
+// GET /api/flashcards/due
+export const getDueFlashcards = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const prog = await FlashcardProgress.findOne({ userId });
+    if (!prog) return res.json({ success: true, due: [], custom: [] });
+    const due = (prog.cards || []).filter(c => new Date(c.nextReviewDate) <= new Date());
+    res.json({ success: true, due, custom: prog.customCards || [] });
+  } catch (err) {
+    console.error('getDueFlashcards error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// GET /api/flashcards/list?branch=ECE&subject=&difficulty=&limit=20
+export const getCardsList = async (req, res) => {
+  try {
+    const { branch = 'ECE', subject, difficulty, limit = 50 } = req.query;
+    const pool = (flashcardsData[branch] || []).slice();
+    let filtered = pool;
+    if (subject) filtered = filtered.filter(c => c.subject === subject);
+    if (difficulty) filtered = filtered.filter(c => c.difficulty === difficulty);
+    // return up to limit
+    filtered = filtered.slice(0, Number(limit));
+    res.json({ success: true, cards: filtered });
+  } catch (err) {
+    console.error('getCardsList error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
+
+// POST /api/flashcards/review
+// { cardId, rating }
+export const reviewCard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { cardId, rating } = req.body;
+    if (!cardId || rating === undefined) return res.status(400).json({ error: true, message: 'cardId and rating required' });
+
+    let prog = await FlashcardProgress.findOne({ userId });
+    if (!prog) {
+      prog = await FlashcardProgress.create({ userId, cards: [] });
+    }
+
+    let card = prog.cards.find(c => c.cardId === cardId);
+    const now = new Date();
+    if (!card) {
+      card = { cardId, nextReviewDate: now, interval: 1, easeFactor: 2.5, repetitions: 0 };
+      prog.cards.push(card);
+    }
+
+    // SM-2 inspired
+    if (rating <= 0) {
+      card.repetitions = 0;
+      card.interval = 1;
+      card.nextReviewDate = new Date(now.getTime() + 24*60*60*1000);
+    } else {
+      card.repetitions = (card.repetitions || 0) + 1;
+      if (card.repetitions === 1) card.interval = 1;
+      else if (card.repetitions === 2) card.interval = 6;
+      else card.interval = Math.round((card.interval || 1) * (card.easeFactor || 2.5));
+      // adjust ease factor mildly
+      card.easeFactor = Math.max(1.3, (card.easeFactor || 2.5) + (0.1 - (3 - rating) * 0.08));
+      card.nextReviewDate = new Date(now.getTime() + card.interval * 24*60*60*1000);
+    }
+    card.lastRating = rating;
+    card.lastReviewedAt = now;
+
+    await prog.save();
+    res.json({ success: true, card });
+  } catch (err) {
+    console.error('reviewCard error:', err);
+    res.status(500).json({ error: true, message: 'Server error reviewing card.' });
+  }
+};
+
+// POST /api/flashcards/custom
+export const addCustomCard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { front, back, subject, formula } = req.body;
+    if (!front || !back) return res.status(400).json({ error: true, message: 'front and back required' });
+    let prog = await FlashcardProgress.findOne({ userId });
+    if (!prog) prog = await FlashcardProgress.create({ userId, customCards: [] });
+    prog.customCards.push({ front, back, subject, formula });
+    await prog.save();
+    res.json({ success: true, custom: prog.customCards[prog.customCards.length - 1] });
+  } catch (err) {
+    console.error('addCustomCard error:', err);
+    res.status(500).json({ error: true, message: 'Server error adding custom card.' });
+  }
+};
+
+// GET /api/flashcards/progress
+export const getFlashcardProgress = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const prog = await FlashcardProgress.findOne({ userId });
+    res.json({ success: true, progress: prog || null });
+  } catch (err) {
+    console.error('getFlashcardProgress error:', err);
+    res.status(500).json({ error: true, message: 'Server error.' });
+  }
+};
