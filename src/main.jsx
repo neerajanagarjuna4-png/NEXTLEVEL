@@ -6,11 +6,18 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import './index.css'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { startKeepAlive } from './utils/keepAlive'
 
-// Set globally so all relative /api calls automatically route to the backend in production
-// Only set baseURL when a non-empty VITE_API_URL is provided — an empty string breaks URL construction.
-if (import.meta.env.VITE_API_URL) {
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+// Set globally so all relative `/api` calls route to the backend in production.
+// If `VITE_API_URL` is missing or empty (frontend deployed without envs),
+// fall back to the Render backend URL so the site remains functional.
+{
+  const rawUrl = import.meta.env.VITE_API_URL || '';
+  const baseHost = (rawUrl && String(rawUrl).trim())
+    ? String(rawUrl).replace(/\/api\/?$/i, '')
+    : 'https://nextlevel-0xw2.onrender.com';
+  axios.defaults.baseURL = baseHost;
 }
 
 // Initialize theme from localStorage so UI matches user's preference on load
@@ -25,9 +32,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
+    {/* Start periodic keep-alive pings to prevent Render free-tier from sleeping */}
+    {typeof window !== 'undefined' && startKeepAlive()}
     <Toaster
       position="top-right"
       toastOptions={{
