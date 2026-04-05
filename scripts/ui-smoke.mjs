@@ -1,6 +1,10 @@
 import { chromium } from 'playwright';
 
+// FRONTEND_URL: URL of the frontend to navigate (e.g. https://...vercel.app)
+// API_BASE: URL of the backend API (e.g. https://nextlevel-backend.onrender.com). If not set,
+// default to the canonical Render backend so tests can create/approve users directly.
 const BASE = process.env.FRONTEND_URL || 'http://localhost:3002';
+const API_BASE = process.env.API_BASE || process.env.VITE_API_URL || 'https://nextlevel-backend.onrender.com';
 
 (async () => {
   console.log('UI smoke test starting — base =', BASE);
@@ -19,10 +23,10 @@ const BASE = process.env.FRONTEND_URL || 'http://localhost:3002';
     const password = 'TestPass123!';
 
     // Ensure test user exists: create via API to avoid UI signup flakiness
-    console.log('Creating test user via API for', email);
+    console.log('Creating test user via API for', email, '-> api base =', API_BASE);
     let userId = null;
     try {
-      const signupResp = await context.request.post(`${BASE}/api/auth/signup`, { data: { name: 'UI Smoke Student', email, password, branch: 'CSE' } });
+      const signupResp = await context.request.post(`${API_BASE}/api/auth/signup`, { data: { name: 'UI Smoke Student', email, password, branch: 'CSE' } });
       if (signupResp.ok()) {
         const signupJson = await signupResp.json();
         console.log('API signup response OK', signupJson.success ? 'success' : signupJson.message || 'no message');
@@ -31,7 +35,7 @@ const BASE = process.env.FRONTEND_URL || 'http://localhost:3002';
         console.warn('API signup returned', signupResp.status());
         // try to locate the user via login
         try {
-          const loginResp = await context.request.post(`${BASE}/api/auth/login`, { data: { email, password } });
+          const loginResp = await context.request.post(`${API_BASE}/api/auth/login`, { data: { email, password } });
           if (loginResp.ok()) {
             const loginJson = await loginResp.json();
             userId = loginJson.user?._id || loginJson.user?.id || null;
@@ -46,7 +50,7 @@ const BASE = process.env.FRONTEND_URL || 'http://localhost:3002';
     } catch (err) {
       console.warn('API signup error (may already exist)', err && err.message ? err.message : err);
       try {
-        const loginResp = await context.request.post(`${BASE}/api/auth/login`, { data: { email, password } });
+        const loginResp = await context.request.post(`${API_BASE}/api/auth/login`, { data: { email, password } });
         if (loginResp.ok()) {
           const loginJson = await loginResp.json();
           userId = loginJson.user?._id || loginJson.user?.id || null;
@@ -60,12 +64,12 @@ const BASE = process.env.FRONTEND_URL || 'http://localhost:3002';
     // If we have a userId, attempt to approve via mentor API so dashboard is accessible
     if (userId) {
       try {
-        const mentorResp = await context.request.post(`${BASE}/api/auth/mentor-login`, { data: { email: 'sankar.bhima@gmail.com', password: process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123' } });
+        const mentorResp = await context.request.post(`${API_BASE}/api/auth/mentor-login`, { data: { email: 'sankar.bhima@gmail.com', password: process.env.MENTOR_MASTER_PASSWORD || 'Bhima@123' } });
         if (mentorResp.ok()) {
           const mentorJson = await mentorResp.json();
           const mentorToken = mentorJson.token;
           console.log('Mentor login obtained, approving user', userId);
-          const approveResp = await context.request.post(`${BASE}/api/mentor/approve-student/${userId}`, { headers: { Authorization: `Bearer ${mentorToken}` } });
+          const approveResp = await context.request.post(`${API_BASE}/api/mentor/approve-student/${userId}`, { headers: { Authorization: `Bearer ${mentorToken}` } });
           if (approveResp.ok()) {
             console.log('Student approved via mentor API');
           } else {
